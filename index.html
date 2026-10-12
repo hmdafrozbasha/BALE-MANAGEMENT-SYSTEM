@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bale Management Software | Agro Bales System</title>
+  <meta name="description" content="Lean Bale Management Software for stock tracking, fermentation plots, cost calculations, sales credit, and profit & loss." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Desktop / Tablet Left Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-badge">
+          <div class="brand-icon">🌾</div>
+          <div>
+            <div class="brand-title">Bale Manager</div>
+            <div class="brand-subtitle">v1.0 • Agro Operations</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a class="nav-item" data-tab="plots">
+          <span class="nav-icon">🌱</span>
+          <span>Plots & Fermentation</span>
+        </a>
+        <a class="nav-item" data-tab="production">
+          <span class="nav-icon">🏭</span>
+          <span>Production Batches</span>
+        </a>
+        <a class="nav-item finance-required" data-tab="purchases">
+          <span class="nav-icon">🛒</span>
+          <span>Purchases & Suppliers</span>
+        </a>
+        <a class="nav-item finance-required" data-tab="sales">
+          <span class="nav-icon">💼</span>
+          <span>Sales & Invoices</span>
+        </a>
+        <a class="nav-item finance-required" data-tab="expenses">
+          <span class="nav-icon">💸</span>
+          <span>Expenses</span>
+        </a>
+        <a class="nav-item finance-required" data-tab="reports">
+          <span class="nav-icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a class="nav-item" data-tab="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div>Current User Role:</div>
+        <div class="role-display-badge" id="sidebarRoleBadge">
+          <span>👑</span> <span id="currentRoleText">Owner</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Top Sticky Bar -->
+      <header class="top-header">
+        <div class="header-left">
+          <h1 class="page-heading-title" id="pageTitle">Owner Dashboard</h1>
+          <div id="roleNoticeBanner" class="role-notice-banner hidden">
+            <span>⚠️</span> <span>Staff Mode: Stock view only. Financial figures are masked.</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- Live Date Badge -->
+          <div class="date-badge">
+            <span>📅</span>
+            <span id="currentDateDisplay">05-10-2026</span>
+          </div>
+
+          <!-- Role Switcher -->
+          <div class="role-switcher-container">
+            <label class="role-label" for="roleSelector">Role:</label>
+            <select id="roleSelector" class="role-select">
+              <option value="Owner">Owner (Full Access)</option>
+              <option value="Accountant">Accountant (No User Mgmt)</option>
+              <option value="Staff">Staff (Stock Only)</option>
+            </select>
+          </div>
+
+          <!-- Quick Action Button -->
+          <button id="quickActionHeaderBtn" class="quick-action-btn">
+            <span>＋</span>
+            <span>New Entry</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Body: Dynamically Mounted Views -->
+      <main class="content-body" id="appContent">
+        <!-- Rendered view goes here -->
+      </main>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar (Phone Layout) -->
+  <nav class="mobile-bottom-bar" id="mobileBottomBar">
+    <button class="mobile-nav-btn active" data-tab="dashboard">
+      <span style="font-size: 1.25rem;">🏠</span>
+      <span>Home</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="plots">
+      <span style="font-size: 1.25rem;">🌱</span>
+      <span>Plots</span>
+    </button>
+    <button class="mobile-fab-btn" id="mobileFabBtn" title="Add New Entry">
+      ＋
+    </button>
+    <button class="mobile-nav-btn finance-required" data-tab="sales">
+      <span style="font-size: 1.25rem;">💼</span>
+      <span>Sales</span>
+    </button>
+    <button class="mobile-nav-btn" id="mobileMoreBtn">
+      <span style="font-size: 1.25rem;">⋯</span>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- Quick Action Popover Menu (Phone & Header Trigger) -->
+  <div class="quick-menu-popover" id="quickMenuPopover">
+    <button class="quick-menu-item" data-action="new-expense">
+      <span>💸</span> <span>Add Expense</span>
+    </button>
+    <button class="quick-menu-item" data-action="new-production">
+      <span>🏭</span> <span>New Production Batch</span>
+    </button>
+    <button class="quick-menu-item finance-required" data-action="new-purchase">
+      <span>🛒</span> <span>New Purchase Bill</span>
+    </button>
+    <button class="quick-menu-item finance-required" data-action="new-sale">
+      <span>💼</span> <span>New Bale Invoice</span>
+    </button>
+    <button class="quick-menu-item" data-action="update-stock">
+      <span>📦</span> <span>Update Plot Stock</span>
+    </button>
+  </div>
+
+  <!-- Mobile More Menu Popover -->
+  <div class="quick-menu-popover" id="moreMenuPopover" style="left: auto; right: 12px; bottom: 70px;">
+    <button class="quick-menu-item finance-required" data-tab="purchases">
+      <span>🛒</span> <span>Purchases & Suppliers</span>
+    </button>
+    <button class="quick-menu-item" data-tab="production">
+      <span>🏭</span> <span>Production Batches</span>
+    </button>
+    <button class="quick-menu-item finance-required" data-tab="expenses">
+      <span>💸</span> <span>Expenses</span>
+    </button>
+    <button class="quick-menu-item finance-required" data-tab="reports">
+      <span>📈</span> <span>Reports (P&L & Balances)</span>
+    </button>
+    <button class="quick-menu-item" data-tab="settings">
+      <span>⚙️</span> <span>Settings</span>
+    </button>
+  </div>
+
+  <!-- Common Modal Container for Popups & Forms -->
+  <div class="modal-overlay" id="commonModalOverlay">
+    <div class="modal-card" id="commonModalCard">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+        <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Injected dynamic body -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>
