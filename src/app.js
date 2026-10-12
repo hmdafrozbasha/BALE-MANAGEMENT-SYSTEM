@@ -47,37 +47,37 @@ function showAuthScreen() {
   }
 
   authDiv.innerHTML = `
-    <div style="min-height:100vh; background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); display:flex; align-items:center; justify-content:center; padding:20px; font-family:system-ui, -apple-system, sans-serif;">
-      <div style="background:#fff; border-radius:18px; padding:36px; width:100%; max-width:440px; box-shadow:0 25px 60px rgba(0,0,0,0.35);">
+    <div style="min-height:100vh; background:radial-gradient(ellipse 700px 500px at 20% 10%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), radial-gradient(circle 600px at 80% 80%, rgba(183, 243, 107, 0.12) 0%, transparent 60%), linear-gradient(180deg, #071D16 0%, #030F0B 100%); display:flex; align-items:center; justify-content:center; padding:20px; font-family:'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;">
+      <div style="background:rgba(255, 255, 255, 0.96); backdrop-filter:blur(28px); border-radius:28px; padding:38px; width:100%; max-width:440px; box-shadow:0 30px 70px rgba(0,0,0,0.5), inset 0 1px 2px #fff; border:1px solid rgba(255, 255, 255, 0.9);">
         <div style="text-align:center; margin-bottom:28px;">
-          <div style="font-size:3rem; margin-bottom:6px;">🌾</div>
-          <h1 style="font-size:1.65rem; font-weight:800; color:#0f172a; margin:0;">Bale Manager</h1>
-          <p style="color:#64748b; font-size:0.9rem; margin:4px 0 0;">Sri Balaji Agro Operations • BMS v1.0</p>
+          <div style="width:54px; height:54px; background:linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius:16px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; box-shadow:0 4px 18px rgba(16, 185, 129, 0.45); border:1px solid rgba(183, 243, 107, 0.4);">🌾</div>
+          <h1 style="font-size:1.65rem; font-weight:800; color:#0B3024; margin:0; font-family:'Outfit', sans-serif;">Bale Manager</h1>
+          <p style="color:#64748B; font-size:0.88rem; margin:4px 0 0; font-weight:600;">Sri Balaji Agro Operations • BMS v1.0</p>
         </div>
 
-        <div style="background:#f1f5f9; border-radius:10px; padding:12px 16px; margin-bottom:24px; font-size:0.83rem; color:#475569; display:flex; align-items:flex-start; gap:8px;">
+        <div style="background:rgba(11, 48, 36, 0.05); border-radius:12px; padding:12px 16px; margin-bottom:24px; font-size:0.83rem; color:#44594F; display:flex; align-items:flex-start; gap:8px; border:1px solid rgba(11, 48, 36, 0.08);">
           <span style="font-size:1rem;">🔐</span>
           <span>Sign in with your assigned credentials. Contact the Owner to get your account created.</span>
         </div>
 
-        <div id="authError" style="display:none; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:0.85rem;"></div>
+        <div id="authError" style="display:none; background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; border-radius:10px; padding:10px 12px; margin-bottom:14px; font-size:0.85rem; font-weight:600;"></div>
 
         <!-- Form: Sign In -->
         <form id="loginForm">
           <div style="margin-bottom:14px;">
-            <label style="display:block; font-size:0.82rem; font-weight:600; color:#475569; margin-bottom:4px;">Email Address</label>
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:#0B3024; margin-bottom:5px;">Email Address</label>
             <input type="email" id="loginEmail" required autocomplete="email"
-              style="width:100%; padding:11px 13px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.92rem; box-sizing:border-box; outline:none;"
+              style="width:100%; padding:11px 14px; border:1.5px solid rgba(11, 48, 36, 0.15); border-radius:12px; font-size:0.92rem; box-sizing:border-box; outline:none; transition:all 0.2s;"
               placeholder="owner@example.com" />
           </div>
           <div style="margin-bottom:24px;">
-            <label style="display:block; font-size:0.82rem; font-weight:600; color:#475569; margin-bottom:4px;">Password</label>
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:#0B3024; margin-bottom:5px;">Password</label>
             <input type="password" id="loginPassword" required autocomplete="current-password"
-              style="width:100%; padding:11px 13px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.92rem; box-sizing:border-box; outline:none;"
+              style="width:100%; padding:11px 14px; border:1.5px solid rgba(11, 48, 36, 0.15); border-radius:12px; font-size:0.92rem; box-sizing:border-box; outline:none; transition:all 0.2s;"
               placeholder="••••••••" />
           </div>
           <button type="submit" id="loginBtn"
-            style="width:100%; padding:13px; background:#0f172a; color:#fff; border:none; border-radius:8px; font-size:0.97rem; font-weight:700; cursor:pointer;">
+            style="width:100%; padding:13px; background:linear-gradient(135deg, #10B981 0%, #087F5B 100%); color:#fff; border:1px solid rgba(183, 243, 107, 0.4); border-radius:9999px; font-size:0.97rem; font-weight:700; cursor:pointer; box-shadow:0 4px 18px rgba(16, 185, 129, 0.42);">
             Sign In →
           </button>
         </form>
@@ -129,7 +129,7 @@ function hideAuthScreen() {
   const appContainer = document.querySelector('.app-container');
   const bottomBar = document.querySelector('.mobile-bottom-bar');
   if (appContainer) appContainer.style.display = 'flex';
-  if (bottomBar) bottomBar.style.display = 'flex';
+  if (bottomBar) bottomBar.style.display = '';
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -418,14 +418,14 @@ async function renderDashboard() {
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         ${isFinance ? `
           <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:0.85rem;font-weight:600;color:var(--text-sub);">Month:</label>
-            <select id="dashMonthSelect" class="form-select" style="padding:6px 12px;font-weight:600;">
+            <label style="font-size:0.85rem;font-weight:700;color:#DDFCE8;">Month:</label>
+            <select id="dashMonthSelect" class="form-select" style="padding:7px 14px;font-weight:600;background:rgba(11,48,36,0.85);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:9999px;backdrop-filter:blur(10px);outline:none;">
               ${months.map(mo => `<option value="${mo.value}" ${currentMonth===mo.value?'selected':''}>${mo.label}</option>`).join('')}
             </select>
           </div>
         ` : ''}
-        <button class="btn-secondary" style="padding:6px 12px;font-size:0.82rem;" onclick="window.refreshDashboard()">🔄 Refresh</button>
-        <button class="btn-danger" style="padding:6px 12px;font-size:0.82rem;" onclick="window.signOut()">Sign Out</button>
+        <button class="btn-secondary" style="padding:7px 16px;font-size:0.84rem;font-weight:600;background:rgba(255,255,255,0.1);color:#DDFCE8;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;backdrop-filter:blur(8px);" onclick="window.refreshDashboard()">🔄 Refresh</button>
+        <button class="btn-danger" style="padding:7px 16px;font-size:0.84rem;font-weight:600;background:rgba(217,83,79,0.18);color:#FCA5A5;border:1px solid rgba(217,83,79,0.38);border-radius:9999px;backdrop-filter:blur(8px);" onclick="window.signOut()">Sign Out</button>
       </div>
     </div>
 
@@ -670,7 +670,7 @@ function renderPlots() {
           <div class="plot-tile ${statusClass}" onclick="window.openPlotDetail('${plot.plot_name||plot.id}')">
             <div>
               <div class="plot-id">${plot.plot_name || plot.id}</div>
-              <div class="plot-bales">${plot.bales > 0 ? `${store.formatNumber(plot.bales)} bales` : '<span style="color:#94a3b8;">Empty</span>'}</div>
+              <div class="plot-bales">${plot.bales > 0 ? `${store.formatNumber(plot.bales)} bales` : '<span style="color:#64748B;font-size:0.8rem;font-weight:500;">0 bales</span>'}</div>
             </div>
             <div>
               <span class="plot-status-label">${statusLabel}</span>
