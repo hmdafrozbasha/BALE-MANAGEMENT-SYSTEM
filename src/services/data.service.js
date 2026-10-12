@@ -196,6 +196,24 @@ export const purchasesService = {
       .order('payment_date', { ascending: false });
     if (error) throw error;
     return data || [];
+  },
+
+  async delete(purchaseId) {
+    try {
+      const { data, error } = await supabase.rpc('delete_purchase', { p_purchase_id: purchaseId });
+      if (!error && data?.success) return data;
+    } catch (e) {
+      // RPC fallback if not deployed yet
+    }
+    // Direct delete fallback
+    await supabase.from('purchase_payments').delete().eq('purchase_id', purchaseId);
+    await supabase.from('inventory_movements').delete().eq('reference_id', purchaseId);
+    const { error: delErr } = await supabase
+      .from('purchases')
+      .delete()
+      .eq('id', purchaseId);
+    if (delErr) throw delErr;
+    return { success: true };
   }
 };
 

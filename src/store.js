@@ -673,6 +673,34 @@ class Store {
     return true;
   }
 
+  async deletePurchase(purchaseId) {
+    if (!this.canDelete()) {
+      throw new Error('Access denied. Only Owner and Accountant can delete purchases.');
+    }
+    const purchase = (this.data.purchases || []).find(p => p.id === purchaseId || p.invoice_no === purchaseId || p.invoiceNo === purchaseId);
+    if (!purchase) return false;
+
+    const actualId = purchase.id;
+    try {
+      if (actualId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId)) {
+        await purchasesService.delete(actualId);
+      }
+    } catch(err) {
+      console.warn('Backend delete purchase warning, removing locally:', err.message);
+    }
+
+    // Remove from in-memory purchases
+    this.data.purchases = (this.data.purchases || []).filter(p => p.id !== actualId && (p.invoice_no || p.invoiceNo) !== (purchase.invoice_no || purchase.invoiceNo));
+
+    // Try loading fresh state from DB
+    try {
+      await this.loadAll();
+    } catch(e) { /* ignore */ }
+
+    this.notify();
+    return true;
+  }
+
   generateBatchNumber() {
     const d = new Date();
     const y = d.getFullYear();

@@ -937,7 +937,14 @@ function renderPurchases() {
                   <td><span class="${pending > 0 ? 'text-red' : 'text-green'} text-bold">${store.formatINR(pending)}</span></td>
                   <td>${store.formatDate(dueDate)}</td>
                   <td>
-                    ${pending > 0 ? `<button class="btn-navy" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openPurchasePaymentModal('${p.id}')">Pay</button>` : '<span style="color:var(--text-muted);font-size:0.8rem;">Cleared</span>'}
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      ${pending > 0 ? `<button class="btn-navy" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openPurchasePaymentModal('${p.id}')">Pay</button>` : '<span style="color:var(--text-muted);font-size:0.8rem;">Cleared</span>'}
+                      ${store.canDelete() ? `
+                        <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;display:inline-flex;align-items:center;gap:2px;" title="Delete Purchase Bill" onclick="window.confirmDeletePurchase('${p.id}', '${invoiceNo}', '${supplierName}', '${store.formatINR(actualCost)}')">
+                          🗑
+                        </button>
+                      ` : ''}
+                    </div>
                   </td>
                 </tr>
               `;
@@ -948,6 +955,48 @@ function renderPurchases() {
     </div>
   `;
 }
+
+window.confirmDeletePurchase = function(purchaseId, invoiceNo, supplierName, costFormatted) {
+  modalTitle.textContent = 'Confirm Delete Purchase Bill';
+  modalBody.innerHTML = `
+    <div style="padding:10px 0;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <span style="font-size:2.2rem;line-height:1;">⚠️</span>
+        <div>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--primary-navy);">Delete Purchase Bill <strong>${invoiceNo}</strong>?</div>
+          <div style="font-size:0.88rem;color:var(--text-sub);margin-top:6px;line-height:1.45;">
+            Supplier: <strong>${supplierName}</strong> | Amount: <strong>${costFormatted}</strong>
+            <br/><br/>
+            This will permanently remove this purchase bill, remove any associated supplier payments, and deduct the raw material stock accordingly.
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" class="btn-danger" id="doDeletePurchaseBtn" style="padding:10px 20px;font-size:0.92rem;font-weight:700;">
+          🗑 Yes, Delete Purchase
+        </button>
+      </div>
+    </div>
+  `;
+  document.getElementById('doDeletePurchaseBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doDeletePurchaseBtn');
+    btn.textContent = 'Deleting…';
+    btn.disabled = true;
+    try {
+      await store.deletePurchase(purchaseId);
+      dashboardMetrics = null;
+      closeModal();
+      renderPurchases();
+      showToast(`Purchase bill ${invoiceNo} deleted successfully!`, 'info');
+    } catch(e) {
+      alert('Error deleting purchase: ' + (e.message || e));
+      btn.textContent = '🗑 Yes, Delete Purchase';
+      btn.disabled = false;
+    }
+  });
+  openModal();
+};
 
 window.openNewPurchaseModal = function() {
   const suppliers = store.data.suppliers;

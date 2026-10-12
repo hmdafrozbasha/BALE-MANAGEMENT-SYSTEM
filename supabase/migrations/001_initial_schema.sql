@@ -723,6 +723,51 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+-- ── RPC: delete_purchase ──
+CREATE OR REPLACE FUNCTION public.delete_purchase(p_purchase_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_purchase RECORD;
+  v_qty_kg NUMERIC;
+BEGIN
+  -- Permission check
+  IF NOT (public.is_owner() OR public.is_finance_role()) THEN
+    RAISE EXCEPTION 'Access denied. Only Owner or Accountant can delete purchases.';
+  END IF;
+
+  SELECT * INTO v_purchase FROM public.purchases WHERE id = p_purchase_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Purchase not found.';
+  END IF;
+
+  v_qty_kg := COALESCE(v_purchase.quantity_kg, v_purchase.quantity * v_purchase.kg_conversion);
+
+  -- 1. Deduct raw material stock
+  IF v_purchase.material_id IS NOT NULL AND v_qty_kg > 0 THEN
+    UPDATE public.raw_materials
+    SET stock_kg = GREATEST(0, stock_kg - v_qty_kg), updated_at = now()
+    WHERE id = v_purchase.material_id;
+  END IF;
+
+  -- 2. Delete payments
+  DELETE FROM public.purchase_payments WHERE purchase_id = p_purchase_id;
+
+  -- 3. Delete inventory movements
+  DELETE FROM public.inventory_movements WHERE reference_id = p_purchase_id;
+
+  -- 4. Delete the purchase record
+  DELETE FROM public.purchases WHERE id = p_purchase_id;
+
+  RETURN jsonb_build_object('success', true, 'deleted_purchase_id', p_purchase_id, 'invoice_no', v_purchase.invoice_no);
+EXCEPTION WHEN OTHERS THEN
+  RAISE;
+END;
+$$;
+
 -- ── RPC: save_production_batch (atomic transaction) ──
 CREATE OR REPLACE FUNCTION public.save_production_batch(p_data JSONB)
 RETURNS JSONB
@@ -1372,6 +1417,7 @@ WHERE (pi.plot_id = pb.plot_id OR pi.plot_id = (SELECT id FROM public.plots WHER
 -- GRANT execute on RPCs to authenticated users
 -- =============================================================================
 GRANT EXECUTE ON FUNCTION public.save_purchase(JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_purchase(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_production_batch(JSONB) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_production_batch(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_sale(JSONB) TO authenticated;
