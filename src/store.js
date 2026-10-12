@@ -701,6 +701,32 @@ class Store {
     return true;
   }
 
+  async deleteSupplier(supplierId) {
+    if (!this.canDelete()) {
+      throw new Error('Access denied. Only Owner and Accountant can delete suppliers.');
+    }
+    const supplier = (this.data.suppliers || []).find(s => s.id === supplierId);
+    if (!supplier) return false;
+
+    try {
+      if (supplierId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(supplierId)) {
+        await suppliersService.delete(supplierId);
+      }
+    } catch(err) {
+      console.warn('Backend delete supplier warning, removing locally:', err.message);
+    }
+
+    // Remove from in-memory suppliers
+    this.data.suppliers = (this.data.suppliers || []).filter(s => s.id !== supplierId);
+
+    // Reload fresh state
+    try { await this.loadAll(); } catch(e) { /* ignore */ }
+
+    this.notify();
+    return true;
+  }
+
+
   generateBatchNumber() {
     const d = new Date();
     const y = d.getFullYear();

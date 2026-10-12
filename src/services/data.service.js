@@ -160,6 +160,15 @@ export const suppliersService = {
     const { data: sup, error } = await supabase.from('suppliers').update(data).eq('id', id).select().single();
     if (error) throw error;
     return sup;
+  },
+
+  async delete(supplierId) {
+    // Soft delete: mark supplier inactive so historical purchase data is preserved
+    const { error } = await supabase
+      .from('suppliers')
+      .update({ is_active: false })
+      .eq('id', supplierId);
+    if (error) throw error;
   }
 };
 

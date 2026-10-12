@@ -876,7 +876,14 @@ function renderPurchases() {
               <div style="font-weight:700;font-size:1.05rem;color:var(--primary-navy);">${sup.name}</div>
               <div style="font-size:0.8rem;color:var(--text-muted);">${sup.city||''} • ${sup.phone||''}</div>
             </div>
-            <span class="badge ${sup.balancePending > 0 ? 'badge-pay' : 'badge-ready'}">${sup.balancePending > 0 ? 'Pending' : 'Cleared'}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="badge ${sup.balancePending > 0 ? 'badge-pay' : 'badge-ready'}">${sup.balancePending > 0 ? 'Pending' : 'Cleared'}</span>
+              ${store.canDelete() ? `
+                <button class="btn-danger" style="padding:3px 7px;font-size:0.75rem;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;" title="Delete Supplier" onclick="event.stopPropagation(); window.confirmDeleteSupplier('${sup.id}', '${(sup.name||'').replace(/'/g, "\\'")}')">
+                  🗑
+                </button>
+              ` : ''}
+            </div>
           </div>
           <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-light);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem;">
             <div>
@@ -940,8 +947,8 @@ function renderPurchases() {
                     <div style="display:flex;align-items:center;gap:6px;">
                       ${pending > 0 ? `<button class="btn-navy" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openPurchasePaymentModal('${p.id}')">Pay</button>` : '<span style="color:var(--text-muted);font-size:0.8rem;">Cleared</span>'}
                       ${store.canDelete() ? `
-                        <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;display:inline-flex;align-items:center;gap:2px;" title="Delete Purchase Bill" onclick="window.confirmDeletePurchase('${p.id}', '${invoiceNo}', '${supplierName}', '${store.formatINR(actualCost)}')">
-                          🗑
+                        <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;display:inline-flex;align-items:center;gap:3px;" title="Delete Purchase Bill" onclick="window.confirmDeletePurchase('${p.id}', '${invoiceNo}', '${supplierName}', '${store.formatINR(actualCost)}')">
+                          🗑 Delete
                         </button>
                       ` : ''}
                     </div>
@@ -1307,9 +1314,60 @@ window.openSupplierDetail = function(supplierId) {
         ${supPurchases.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No purchases yet</td></tr>':''}
       </tbody>
     </table>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:12px;border-top:1px solid var(--border-light);">
+      <button type="button" class="btn-secondary" onclick="window.closeModal()">Close</button>
+      ${store.canDelete() ? `
+        <button type="button" class="btn-danger" style="padding:6px 14px;font-size:0.85rem;display:inline-flex;align-items:center;gap:4px;" onclick="window.closeModal(); window.confirmDeleteSupplier('${sup.id}', '${(sup.name||'').replace(/'/g, "\\'")}')">
+          🗑 Delete Supplier
+        </button>
+      ` : ''}
+    </div>
   `;
   openModal();
 };
+
+window.confirmDeleteSupplier = function(supplierId, supplierName) {
+  modalTitle.textContent = 'Confirm Delete Supplier';
+  modalBody.innerHTML = `
+    <div style="padding:10px 0;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <span style="font-size:2.2rem;line-height:1;">⚠️</span>
+        <div>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--primary-navy);">Delete Supplier <strong>${supplierName}</strong>?</div>
+          <div style="font-size:0.88rem;color:var(--text-sub);margin-top:6px;line-height:1.45;">
+            Are you sure you want to remove supplier <strong>${supplierName}</strong>?
+            <br/><br/>
+            This will remove the supplier from your active supplier list. Any existing historical purchase bills will keep their records intact.
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" class="btn-danger" id="doDeleteSupplierBtn" style="padding:10px 20px;font-size:0.92rem;font-weight:700;">
+          🗑 Yes, Delete Supplier
+        </button>
+      </div>
+    </div>
+  `;
+  document.getElementById('doDeleteSupplierBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doDeleteSupplierBtn');
+    btn.textContent = 'Deleting…';
+    btn.disabled = true;
+    try {
+      await store.deleteSupplier(supplierId);
+      dashboardMetrics = null;
+      closeModal();
+      renderPurchases();
+      showToast(`Supplier ${supplierName} deleted successfully!`, 'info');
+    } catch(e) {
+      alert('Error deleting supplier: ' + (e.message || e));
+      btn.textContent = '🗑 Yes, Delete Supplier';
+      btn.disabled = false;
+    }
+  });
+  openModal();
+};
+
 
 // ─────────────────────────────────────────────────────────────────
 // PRODUCTION BATCHES
