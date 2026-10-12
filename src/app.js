@@ -100,12 +100,21 @@ function showAuthScreen() {
     btn.disabled = true;
     errDiv.style.display = 'none';
     try {
+      showLoading('Loading your data…');
       await store.signIn(
         document.getElementById('loginEmail').value.trim(),
         document.getElementById('loginPassword').value
       );
-      // On success, store.subscribe fires → hideAuthScreen + render
+      try {
+        dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
+      } catch(e) {}
+      hideLoading();
+      hideAuthScreen();
+      ensureEventsBound();
+      updateRoleUI();
+      render();
     } catch(err) {
+      hideLoading();
       errDiv.textContent = err.message || 'Invalid email or password. Please try again.';
       errDiv.style.display = 'block';
       btn.textContent = 'Sign In →';

@@ -68,6 +68,7 @@ class Store {
     if (error) throw error;
     this.currentUser = data.user;
     await this._loadProfile();
+    await this.loadAll();
     this.notify();
     return data;
   }

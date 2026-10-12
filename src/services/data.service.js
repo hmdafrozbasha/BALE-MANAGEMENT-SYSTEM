@@ -326,12 +326,17 @@ export const plotsService = {
 // ─────────────────────────────────────────────────────────────────
 export const batchesService = {
   async getAll() {
-    const { data, error } = await supabase
-      .from('production_batches')
-      .select('*, plots(plot_name)')
-      .order('production_date', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    try {
+      const { data, error } = await supabase
+        .from('production_batches')
+        .select('*')
+        .order('production_date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch(err) {
+      console.warn('batchesService.getAll error:', err.message);
+      return [];
+    }
   },
 
   async saveBatch(batchData) {
