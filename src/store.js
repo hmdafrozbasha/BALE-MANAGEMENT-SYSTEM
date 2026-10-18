@@ -332,22 +332,90 @@ class Store {
           return b;
         });
 
+      // Reconcile live sales metrics to guarantee dashboard reflects latest data immediately
+      const storeSales = this.data.sales || [];
+      const storePurchases = this.data.purchases || [];
+      const storeExpenses = this.data.expenses || [];
+
+      const calcCustomerDues = storeSales.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+      const calcSupplierDues = storePurchases.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+      const calcMonthSales = storeSales
+        .filter(s => (s.invoice_date || s.date || '').startsWith(month))
+        .reduce((s,r) => s + (Number(r.invoice_total ?? r.invoiceTotal) || 0), 0);
+      const calcMonthCOGS = storeSales
+        .filter(s => (s.invoice_date || s.date || '').startsWith(month))
+        .reduce((s,r) => s + (Number(r.cogs_total ?? r.cogsTotal) || 0), 0);
+      const calcMonthExpenses = storeExpenses
+        .filter(e => (e.expense_date || e.date || '').startsWith(month))
+        .reduce((s,r) => s + (Number(r.amount) || 0), 0);
+      const calcMonthSoldBales = storeSales
+        .filter(s => (s.invoice_date || s.date || '').startsWith(month))
+        .reduce((s,r) => s + (Number(r.bales_count ?? r.balesCount ?? (r.sale_line_items || []).reduce((sb, li) => sb + (Number(li.bales_sold) || 0), 0)) || 0), 0);
+
+      // Prefer non-zero live calculated values if DB RPC returns stale/empty zero metrics
+      const rpcCustDues = Number(metrics?.customer_dues) || 0;
+      const rpcSuppDues = Number(metrics?.supplier_dues) || 0;
+      const rpcSales = Number(metrics?.month_sales) || 0;
+      const rpcCOGS = Number(metrics?.month_cogs) || 0;
+      const rpcExpenses = Number(metrics?.month_expenses) || 0;
+      const rpcSoldBales = Number(metrics?.month_sold_bales) || 0;
+
+      const customerDues = calcCustomerDues > 0 ? calcCustomerDues : rpcCustDues;
+      const supplierDues = calcSupplierDues > 0 ? calcSupplierDues : rpcSuppDues;
+      const monthSales = calcMonthSales > 0 ? calcMonthSales : rpcSales;
+      const monthCOGS = calcMonthCOGS > 0 ? calcMonthCOGS : rpcCOGS;
+      const monthExpenses = calcMonthExpenses > 0 ? calcMonthExpenses : rpcExpenses;
+      const monthSoldBales = calcMonthSoldBales > 0 ? calcMonthSoldBales : rpcSoldBales;
+      const grossProfit = monthSales - monthCOGS;
+      const netProfit = grossProfit - monthExpenses;
+
+      // Reconcile upcoming payments if RPC list is empty
+      let upcomingList = payments && payments.length > 0 ? payments : [];
+      if (upcomingList.length === 0) {
+        const todayStr = this.getCurrentDate();
+        const custDues = storeSales
+          .filter(s => (Number(s.balance_pending ?? s.balancePending) || 0) > 0)
+          .map(s => {
+            const dueDate = s.due_date || s.dueDate || '';
+            return {
+              who: s.customers?.name || s.customerName || 'Customer',
+              type: 'Receive',
+              amount: Number(s.balance_pending ?? s.balancePending) || 0,
+              dueDate,
+              isOverdue: dueDate && new Date(dueDate) < new Date(todayStr)
+            };
+          });
+        const supDues = storePurchases
+          .filter(p => (Number(p.balance_pending ?? p.balancePending) || 0) > 0)
+          .map(p => {
+            const dueDate = p.payment_due_date || p.paymentDueDate || '';
+            return {
+              who: p.suppliers?.name || p.supplierName || p.supplier_name || 'Supplier',
+              type: 'Pay',
+              amount: Number(p.balance_pending ?? p.balancePending) || 0,
+              dueDate,
+              isOverdue: dueDate && new Date(dueDate) < new Date(todayStr)
+            };
+          });
+        upcomingList = [...custDues, ...supDues].sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+      }
+
       return {
         role: this.getRole(),
         readyBales: plotsReady > 0 ? plotsReady : (metrics?.ready_bales || 0),
         fermentingBales: plotsFerm === 0 ? 0 : (metrics?.fermenting_bales || plotsFerm),
-        customerDues: metrics?.customer_dues || 0,
-        supplierDues: metrics?.supplier_dues || 0,
-        monthSales: metrics?.month_sales || 0,
-        monthCOGS: metrics?.month_cogs || 0,
-        monthExpenses: metrics?.month_expenses || 0,
-        grossProfit: metrics?.gross_profit || 0,
-        netProfit: metrics?.net_profit || 0,
+        customerDues,
+        supplierDues,
+        monthSales,
+        monthCOGS,
+        monthExpenses,
+        grossProfit,
+        netProfit,
         rawMaterialKg: realRawKg,
         rawMaterialBalesEquiv: Math.round(realRawKg / 28),
-        monthSoldBales: metrics?.month_sold_bales || 0,
+        monthSoldBales,
         batchesReadySoon: filteredBatchesSoon,
-        upcomingPayments: payments || []
+        upcomingPayments: upcomingList
       };
     } catch(e) {
       console.warn('Dashboard metrics error, using local fallback:', e);
@@ -428,13 +496,16 @@ class Store {
     const amountPaid = Number(purchaseData.amountPaid) || 0;
     const balance = actualCost - amountPaid;
 
+    const purYear = (purchaseData.date || this.getCurrentDate()).split('-')[0];
+    const generatedInvoiceNo = purchaseData.invoiceNo?.trim() || `PUR-${purYear}-${String(this.data.purchases.length + 1001).padStart(4, '0')}`;
+
     try {
       const result = await purchasesService.savePurchase({
         supplier_name: purchaseData.supplierName,
         supplier_id: purchaseData.supplierId || null,
         material_name: purchaseData.material || 'Hay (loose)',
         purchase_date: purchaseData.date || this.getCurrentDate(),
-        invoice_no: purchaseData.invoiceNo,
+        invoice_no: generatedInvoiceNo,
         quantity: qty,
         unit: purchaseData.unit,
         kg_conversion: kgConv,
@@ -459,7 +530,7 @@ class Store {
         supplierId: purchaseData.supplierId || 'sup-1',
         supplierName: purchaseData.supplierName || 'Supplier',
         date: purchaseData.date || this.getCurrentDate(),
-        invoiceNo: purchaseData.invoiceNo || 'PUR-' + Date.now(),
+        invoiceNo: generatedInvoiceNo,
         material: purchaseData.material || 'Hay (loose)',
         quantity: qty,
         unit: purchaseData.unit || 'ton',
@@ -826,6 +897,7 @@ class Store {
         cogsTotal: balesCount * 220,
         amountPaid: paid,
         balancePending: balance,
+        status: balance <= 0 ? 'Paid' : (paid > 0 ? 'Partially Paid' : 'Pending'),
         paymentMode: saleData.paymentMode || 'Cash'
       };
       this.data.sales.unshift(newSale);
@@ -836,11 +908,14 @@ class Store {
 
   async addSalePayment(saleId, paymentInput) {
     const amt = Number(paymentInput.amountPaid) || 0;
+    const safeDate = paymentInput.date 
+      ? (/^\d{4}-\d{2}-\d{2}$/.test(paymentInput.date) ? paymentInput.date : paymentInput.date.split('-').reverse().join('-'))
+      : this.getCurrentDate();
     try {
       const result = await salesService.addPayment({
         sale_id: saleId,
         amount: amt,
-        payment_date: paymentInput.date ? paymentInput.date.split('-').reverse().join('-') : this.getCurrentDate(),
+        payment_date: safeDate,
         payment_mode: paymentInput.mode || 'Cash',
         note: paymentInput.note || ''
       });
@@ -852,6 +927,7 @@ class Store {
       if (sale) {
         sale.amountPaid = (sale.amountPaid || 0) + amt;
         sale.balancePending = Math.max(0, (sale.balancePending || 0) - amt);
+        sale.status = sale.balancePending <= 0 ? 'Paid' : 'Partially Paid';
         this.notify();
       }
       return true;

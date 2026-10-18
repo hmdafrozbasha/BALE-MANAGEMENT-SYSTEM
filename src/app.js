@@ -945,6 +945,7 @@ function renderPurchases() {
                   <td>${store.formatDate(dueDate)}</td>
                   <td>
                     <div style="display:flex;align-items:center;gap:6px;">
+                      <button class="btn-secondary" style="padding:4px 8px;font-size:0.78rem;" onclick="window.viewPurchaseAttachments('${p.id}')">📎 Attachments</button>
                       ${pending > 0 ? `<button class="btn-navy" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openPurchasePaymentModal('${p.id}')">Pay</button>` : '<span style="color:var(--text-muted);font-size:0.8rem;">Cleared</span>'}
                       ${store.canDelete() ? `
                         <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;display:inline-flex;align-items:center;gap:3px;" title="Delete Purchase Bill" onclick="window.confirmDeletePurchase('${p.id}', '${invoiceNo}', '${supplierName}', '${store.formatINR(actualCost)}')">
@@ -1022,8 +1023,9 @@ window.openNewPurchaseModal = function() {
             <input type="date" id="p_date" class="form-input" value="${store.getCurrentDate()}" required />
           </div>
           <div class="form-group">
-            <label class="form-label">Bill / Invoice No.</label>
-            <input type="text" id="p_invoiceNo" class="form-input" placeholder="e.g. KR-4471" required />
+            <label class="form-label">Bill / Invoice No. <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">(Auto-generated if blank)</span></label>
+            <input type="text" id="p_invoiceNo" class="form-input" placeholder="Leave blank for auto-number (PUR-YYYY-NNNN)" />
+            <small id="p_invoiceNoPreview" style="color:var(--text-muted);font-size:0.76rem;">Will be auto-assigned on save</small>
           </div>
         </div>
         <div class="form-grid-3">
@@ -1098,16 +1100,17 @@ window.openNewPurchaseModal = function() {
         </div>
         <div class="attachment-box">
           <div>
-            <div style="font-weight:600;font-size:0.85rem;">Attach Bill Photo / PDF (Max 5MB)</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">Stored permanently for audit proof</div>
+            <div style="font-weight:600;font-size:0.85rem;">Attach Bills / Receipts / Photos (Max 5 MB each)</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">Supports JPG, PNG, PDF — multiple files allowed — stored permanently for audit</div>
           </div>
           <div class="attachment-buttons">
             <label class="attach-btn" style="cursor:pointer;">
-              📷 Attach File
-              <input type="file" id="p_fileInput" accept="image/*,application/pdf" style="display:none;" />
+              📎 Attach Files
+              <input type="file" id="p_fileInput" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" multiple style="display:none;" />
             </label>
-            <span id="attachedFileName" class="attach-preview-tag">No file chosen</span>
+            <span id="attachedFileName" class="attach-preview-tag">No files chosen</span>
           </div>
+          <div id="p_uploadStatus" style="margin-top:6px;font-size:0.78rem;color:var(--text-muted);"></div>
         </div>
         <div id="purchaseError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;margin-top:10px;font-size:0.85rem;"></div>
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
@@ -1162,7 +1165,13 @@ window.openNewPurchaseModal = function() {
   });
 
   document.getElementById('p_fileInput').addEventListener('change', (e) => {
-    if (e.target.files.length > 0) document.getElementById('attachedFileName').textContent = e.target.files[0].name;
+    const files = e.target.files;
+    if (files.length > 0) {
+      const names = Array.from(files).map(f => f.name).join(', ');
+      document.getElementById('attachedFileName').textContent = files.length + ' file(s): ' + names;
+    } else {
+      document.getElementById('attachedFileName').textContent = 'No files chosen';
+    }
   });
 
   document.getElementById('newPurchaseForm').addEventListener('submit', async (e) => {
@@ -1175,7 +1184,7 @@ window.openNewPurchaseModal = function() {
       const purchaseResult = await store.addPurchase({
         supplierName: document.getElementById('p_supplier').value,
         date: document.getElementById('p_date').value,
-        invoiceNo: document.getElementById('p_invoiceNo').value,
+        invoiceNo: document.getElementById('p_invoiceNo').value.trim(), // empty = auto-generate
         material: document.getElementById('p_material').value,
         quantity: document.getElementById('p_quantity').value,
         unit: document.getElementById('p_unit').value,
@@ -1191,19 +1200,28 @@ window.openNewPurchaseModal = function() {
         notes: document.getElementById('p_notes').value
       });
 
-      // Upload attachment if selected
+      // Upload all selected attachments
       const fileInput = document.getElementById('p_fileInput');
-      if (fileInput.files.length > 0 && purchaseResult?.purchase_id) {
-        try {
-          await attachmentsService.upload(fileInput.files[0], 'purchase', purchaseResult.purchase_id);
-        } catch(attachErr) {
-          console.warn('Attachment upload failed:', attachErr.message);
+      const purchaseId = purchaseResult?.purchase_id || purchaseResult?.id;
+      if (fileInput.files.length > 0 && purchaseId) {
+        const uploadErrors = [];
+        for (const f of fileInput.files) {
+          try {
+            await attachmentsService.upload(f, 'purchase', purchaseId);
+          } catch(attachErr) {
+            uploadErrors.push(f.name + ': ' + attachErr.message);
+          }
+        }
+        if (uploadErrors.length > 0) {
+          showToast('Purchase saved but some attachments failed: ' + uploadErrors.join('; '), 'warning');
         }
       }
 
+      dashboardMetrics = null; // invalidate dashboard cache
       closeModal();
       renderPurchases();
-      showToast('Purchase saved successfully');
+      const savedInvNo = purchaseResult?.invoice_no || purchaseResult?.invoiceNo || '';
+      showToast(`Purchase saved successfully${savedInvNo ? ' (' + savedInvNo + ')' : ''}`);
     } catch(err) {
       errDiv.textContent = err.message || 'Error saving purchase.';
       errDiv.style.display = 'block';
@@ -1299,7 +1317,7 @@ window.openSupplierDetail = function(supplierId) {
     </div>
     <h4 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;">Purchase History</h4>
     <table class="app-table" style="font-size:0.82rem;">
-      <thead><tr><th>Date</th><th>Bill</th><th>Material</th><th>Qty</th><th>Actual Cost</th><th>Pending</th></tr></thead>
+      <thead><tr><th>Date</th><th>Bill</th><th>Material</th><th>Qty</th><th>Actual Cost</th><th>Pending</th><th>Attachments</th></tr></thead>
       <tbody>
         ${supPurchases.map(p => `
           <tr>
@@ -1309,9 +1327,10 @@ window.openSupplierDetail = function(supplierId) {
             <td>${p.quantity} ${p.unit}</td>
             <td>${store.formatINR(p.actual_cost||p.actualCost)}</td>
             <td class="${(p.balance_pending||p.balancePending)>0?'text-red':'text-green'}">${store.formatINR(p.balance_pending||p.balancePending)}</td>
+            <td><button class="btn-secondary" style="padding:3px 7px;font-size:0.74rem;" onclick="window.viewPurchaseAttachments('${p.id}')">📎 Files</button></td>
           </tr>
         `).join('')}
-        ${supPurchases.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No purchases yet</td></tr>':''}
+        ${supPurchases.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">No purchases yet</td></tr>':''}
       </tbody>
     </table>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:12px;border-top:1px solid var(--border-light);">
@@ -1324,6 +1343,68 @@ window.openSupplierDetail = function(supplierId) {
     </div>
   `;
   openModal();
+};
+
+window.viewPurchaseAttachments = async function(purchaseId) {
+  showLoading('Loading attachments…');
+  let attachments = [];
+  try {
+    attachments = await attachmentsService.getForEntity('purchase', purchaseId);
+  } catch(e) {
+    console.warn('Could not load attachments:', e.message);
+  }
+  hideLoading();
+  modalTitle.textContent = 'Purchase Attachments';
+  modalBody.innerHTML = `
+    <div style="margin-bottom:16px;">
+      ${attachments.length === 0 ? '<div style="text-align:center;color:var(--text-muted);padding:20px;">No attachments yet for this purchase.</div>' : ''}
+      ${attachments.map(att => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-light);border-radius:8px;margin-bottom:8px;">
+          <span style="font-size:1.4rem;">${att.mime_type==='application/pdf'?'📄':'🖼'}</span>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${att.original_name}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">${Math.round(att.file_size_bytes/1024)} KB • ${store.formatDate(att.created_at)}</div>
+          </div>
+          <button class="btn-navy" style="padding:5px 10px;font-size:0.8rem;" onclick="window.viewAttachment('${att.storage_path}')">View</button>
+        </div>
+      `).join('')}
+    </div>
+    <div style="border-top:1px solid var(--border-light);padding-top:14px;">
+      <div style="font-weight:600;font-size:0.85rem;margin-bottom:8px;">+ Upload More Files</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="purAttachFile" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" multiple style="flex:1;" />
+        <button class="btn-primary" style="padding:7px 14px;font-size:0.85rem;" onclick="window.doPurchaseAttachUpload('${purchaseId}')">Upload</button>
+      </div>
+      <div id="purAttachProgress" style="margin-top:6px;font-size:0.8rem;color:var(--text-muted);"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn-secondary" onclick="window.closeModal()">Close</button>
+    </div>
+  `;
+  openModal();
+};
+
+window.doPurchaseAttachUpload = async function(purchaseId) {
+  const fileInput = document.getElementById('purAttachFile');
+  const progressEl = document.getElementById('purAttachProgress');
+  if (!fileInput || !fileInput.files.length) { showToast('Select at least one file', 'warning'); return; }
+  const files = Array.from(fileInput.files);
+  progressEl.textContent = 'Uploading ' + files.length + ' file(s)…';
+  const errors = [];
+  for (const f of files) {
+    try {
+      await attachmentsService.upload(f, 'purchase', purchaseId);
+    } catch(err) {
+      errors.push(f.name + ': ' + err.message);
+    }
+  }
+  if (errors.length > 0) {
+    progressEl.textContent = 'Some files failed: ' + errors.join('; ');
+    progressEl.style.color = 'var(--red-accent)';
+  } else {
+    showToast('Files uploaded successfully!');
+    window.viewPurchaseAttachments(purchaseId);
+  }
 };
 
 window.confirmDeleteSupplier = function(supplierId, supplierName) {
@@ -1697,7 +1778,10 @@ function renderSales() {
   appContent.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">Sell from ready stock, issue invoices, track credit limits, maintain append-only payment histories.</div>
-      <button class="btn-primary" onclick="window.openNewInvoiceModal()">＋ New Bale Invoice</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-secondary" onclick="window.openAddCustomerModal(() => renderSales())">＋ Add Customer</button>
+        <button class="btn-primary" onclick="window.openNewInvoiceModal()">＋ New Bale Invoice</button>
+      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px;">
@@ -1752,6 +1836,17 @@ function renderSales() {
               const pending = s.balance_pending || s.balancePending || 0;
               const dueDate = s.due_date || s.dueDate || '';
               const isOverdue = pending > 0 && dueDate && new Date(dueDate) < new Date(today);
+              // Compute status client-side — never show undefined
+              let displayStatus = s.status;
+              if (!displayStatus || displayStatus === 'undefined') {
+                if (pending <= 0) displayStatus = 'Paid';
+                else if (isOverdue) displayStatus = 'Overdue';
+                else if (paid > 0) displayStatus = 'Partially Paid';
+                else displayStatus = 'Pending';
+              } else if (displayStatus === 'Pending' && isOverdue) {
+                displayStatus = 'Overdue';
+              }
+              const statusBadgeClass = displayStatus === 'Paid' ? 'badge-ready' : displayStatus === 'Overdue' ? 'badge-overdue' : displayStatus === 'Partially Paid' ? 'badge-blue' : 'badge-fermenting';
               return `
                 <tr>
                   <td><strong style="color:var(--brand-blue);">${invNum}</strong></td>
@@ -1766,7 +1861,7 @@ function renderSales() {
                     ${isOverdue ? '<span class="badge badge-overdue" style="margin-left:4px;">OVERDUE</span>' : ''}
                   </td>
                   <td>${store.formatDate(dueDate)}</td>
-                  <td><span class="badge ${s.status==='Paid'?'badge-ready':'badge-fermenting'}">${s.status}</span></td>
+                  <td><span class="badge ${statusBadgeClass}">${displayStatus}</span></td>
                   <td>
                     <button class="btn-navy" style="padding:5px 10px;font-size:0.8rem;" onclick="window.viewInvoiceDetail('${s.id}')">View / Pay</button>
                   </td>
@@ -1798,7 +1893,18 @@ window.viewInvoiceDetail = async function(invoiceId) {
   const lineItems = sale.sale_line_items || sale.stockAllocations || [];
   const payments = sale.sale_payments || sale.paymentHistory || [];
 
-  modalTitle.textContent = `Invoice ${sale.invoice_number||sale.invoiceNumber} • ${sale.customers?.name||sale.customerName}`;
+  let displayStatus = sale.status;
+  if (!displayStatus || displayStatus === 'undefined') {
+    if (pending <= 0) displayStatus = 'Paid';
+    else if (isOverdue) displayStatus = 'Overdue';
+    else if ((sale.amount_paid || sale.amountPaid || 0) > 0) displayStatus = 'Partially Paid';
+    else displayStatus = 'Pending';
+  } else if (displayStatus === 'Pending' && isOverdue) {
+    displayStatus = 'Overdue';
+  }
+  const statusBadgeClass = displayStatus === 'Paid' ? 'badge-ready' : displayStatus === 'Overdue' ? 'badge-overdue' : displayStatus === 'Partially Paid' ? 'badge-blue' : 'badge-fermenting';
+
+  modalTitle.innerHTML = `Invoice ${sale.invoice_number||sale.invoiceNumber} • ${sale.customers?.name||sale.customerName} <span class="badge ${statusBadgeClass}" style="margin-left:8px;font-size:0.8rem;">${displayStatus}</span>`;
   modalBody.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;background:var(--grey-bg);padding:18px;border-radius:var(--radius-md);margin-bottom:20px;">
       <div>
@@ -1920,6 +2026,7 @@ window.openAddPaymentModal = function(saleId) {
         mode: document.getElementById('pay_mode').value,
         note: document.getElementById('pay_note').value
       });
+      dashboardMetrics = null; // invalidate dashboard so it refreshes
       await window.viewInvoiceDetail(saleId);
       showToast('Payment recorded successfully');
     } catch(err) {
@@ -1939,14 +2046,18 @@ window.openNewInvoiceModal = function(opts = {}) {
     <form id="newSaleInvoiceForm">
       <div class="form-grid-3">
         <div class="form-group">
-          <label class="form-label">Customer</label>
-          <select id="s_customer" class="form-select" required>
-            ${customers.map(c => {
-              const bal = c.balancePending || c.balance_pending || 0;
-              return `<option value="${c.id}">${c.name} (Bal: ${store.formatINR(bal)})</option>`;
-            }).join('')}
-            <option value="_new">+ Add New Customer</option>
-          </select>
+          <label class="form-label">Customer <span style="color:var(--red-accent);">*</span></label>
+          <div style="display:flex;gap:6px;">
+            <select id="s_customer" class="form-select" style="flex:1;" required>
+              <option value="">-- Select Customer --</option>
+              <option value="_add_new" style="font-weight:600;color:var(--brand-blue);">＋ Add New Customer...</option>
+              ${customers.map(c => {
+                const bal = c.balancePending || c.balance_pending || 0;
+                return `<option value="${c.id}">${c.name} (Bal: ${store.formatINR(bal)})</option>`;
+              }).join('')}
+            </select>
+            <button type="button" class="btn-secondary" id="addNewCustBtn" style="padding:7px 10px;font-size:0.8rem;white-space:nowrap;" title="Add New Customer">＋ New</button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Invoice Date</label>
@@ -1955,6 +2066,39 @@ window.openNewInvoiceModal = function(opts = {}) {
         <div class="form-group">
           <label class="form-label">Due Date</label>
           <input type="date" id="s_dueDate" class="form-input" value="${store.addDays(store.getCurrentDate(), 30)}" required />
+        </div>
+      </div>
+
+      <!-- Inline Quick Add Customer (Preserves all entered invoice items!) -->
+      <div id="inlineQuickCustPanel" style="display:none;background:#f8fafc;border:1px solid #cbd5e1;border-radius:var(--radius-md);padding:14px;margin-bottom:16px;">
+        <div style="font-weight:700;font-size:0.88rem;color:var(--primary-navy);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span>👤 Add New Customer (Quick Inline)</span>
+          <button type="button" id="closeQuickCustBtn" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">&times;</button>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Customer Name <span style="color:var(--red-accent);">*</span></label>
+            <input type="text" id="qc_name" class="form-input" placeholder="e.g. Ramesh Reddy" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" id="qc_phone" class="form-input" placeholder="+91 98765 43210" />
+          </div>
+        </div>
+        <div class="form-grid-2" style="margin-top:8px;">
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input type="text" id="qc_address" class="form-input" placeholder="Town / District" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Credit Limit (₹)</label>
+            <input type="number" id="qc_creditLimit" class="form-input" value="300000" min="0" />
+          </div>
+        </div>
+        <div id="qcError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:8px;font-size:0.82rem;margin-top:8px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+          <button type="button" id="cancelQuickCustBtn" class="btn-secondary" style="padding:5px 12px;font-size:0.82rem;">Cancel</button>
+          <button type="button" id="saveQuickCustBtn" class="btn-primary" style="padding:5px 14px;font-size:0.82rem;">Save & Select Customer</button>
         </div>
       </div>
 
@@ -2043,6 +2187,76 @@ window.openNewInvoiceModal = function(opts = {}) {
     document.getElementById(id)?.addEventListener('input', updateSaleCalc);
   });
 
+  // Handle Inline Quick Add Customer
+  const quickPanel = document.getElementById('inlineQuickCustPanel');
+  const custSelect = document.getElementById('s_customer');
+
+  const openQuickPanel = () => {
+    if (quickPanel) {
+      quickPanel.style.display = 'block';
+      document.getElementById('qc_name')?.focus();
+    }
+  };
+
+  const closeQuickPanel = () => {
+    if (quickPanel) {
+      quickPanel.style.display = 'none';
+      if (custSelect.value === '_add_new') custSelect.value = '';
+    }
+  };
+
+  document.getElementById('addNewCustBtn')?.addEventListener('click', openQuickPanel);
+  custSelect?.addEventListener('change', (e) => {
+    if (e.target.value === '_add_new') openQuickPanel();
+    else closeQuickPanel();
+  });
+  document.getElementById('closeQuickCustBtn')?.addEventListener('click', closeQuickPanel);
+  document.getElementById('cancelQuickCustBtn')?.addEventListener('click', closeQuickPanel);
+
+  document.getElementById('saveQuickCustBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('saveQuickCustBtn');
+    const errDiv = document.getElementById('qcError');
+    const name = document.getElementById('qc_name').value.trim();
+    if (!name) {
+      errDiv.textContent = 'Customer name is required.';
+      errDiv.style.display = 'block';
+      return;
+    }
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    errDiv.style.display = 'none';
+    try {
+      const newCust = await customersService.create({
+        name,
+        phone: document.getElementById('qc_phone').value.trim() || '',
+        address: document.getElementById('qc_address').value.trim() || '',
+        credit_limit: Number(document.getElementById('qc_creditLimit').value) || 300000,
+        is_active: true
+      });
+      // Add to store in-memory list
+      if (!store.data.customers) store.data.customers = [];
+      const formattedCust = { ...newCust, balancePending: 0, totalPurchased: 0, totalPaid: 0 };
+      store.data.customers.push(formattedCust);
+      store.notify();
+
+      // Add to dropdown and select it without resetting any other invoice inputs
+      const opt = document.createElement('option');
+      opt.value = newCust.id;
+      opt.textContent = `${newCust.name} (Bal: ₹ 0)`;
+      custSelect.appendChild(opt);
+      custSelect.value = newCust.id;
+
+      closeQuickPanel();
+      showToast(`Customer "${name}" added and selected!`);
+    } catch(err) {
+      const msg = err.message || 'Error saving customer.';
+      errDiv.textContent = msg.includes('duplicate') ? `A customer named "${name}" already exists.` : msg;
+      errDiv.style.display = 'block';
+    } finally {
+      btn.textContent = 'Save & Select Customer';
+      btn.disabled = false;
+    }
+  });
+
   document.getElementById('newSaleInvoiceForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('saveSaleBtn');
@@ -2051,6 +2265,8 @@ window.openNewInvoiceModal = function(opts = {}) {
     errDiv.style.display = 'none';
     try {
       const custId = document.getElementById('s_customer').value;
+      if (!custId) throw new Error('Please select a customer before saving.');
+
       const checked = Array.from(document.querySelectorAll('input[name="selectedReadyPlots"]:checked'));
       const totalBales = Number(document.getElementById('s_balesCount').value) || 0;
       let remaining = totalBales;
@@ -2083,6 +2299,7 @@ window.openNewInvoiceModal = function(opts = {}) {
         paymentMode: document.getElementById('s_mode').value,
         allocations
       });
+      dashboardMetrics = null; // force dashboard refresh
       closeModal();
       renderSales();
       showToast('Invoice created successfully!');
@@ -2090,6 +2307,81 @@ window.openNewInvoiceModal = function(opts = {}) {
       errDiv.textContent = err.message || 'Error creating invoice.';
       errDiv.style.display = 'block';
       btn.textContent = 'Generate Invoice'; btn.disabled = false;
+    }
+  });
+  openModal();
+};
+
+// ─────────────────────────────────────────────────────────────────
+// ADD NEW CUSTOMER MODAL
+// ─────────────────────────────────────────────────────────────────
+window.openAddCustomerModal = function(onSuccess) {
+  modalTitle.textContent = 'Add New Customer';
+  modalBody.innerHTML = `
+    <form id="addCustomerForm">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Customer Name <span style="color:var(--red-accent);">*</span></label>
+          <input type="text" id="nc_name" class="form-input" placeholder="e.g. Ravi Shankar" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="nc_phone" class="form-input" placeholder="+91 98765 43210" />
+        </div>
+      </div>
+      <div class="form-group mb-12">
+        <label class="form-label">Address</label>
+        <input type="text" id="nc_address" class="form-input" placeholder="Village / Town, District" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">GST Number</label>
+          <input type="text" id="nc_gst" class="form-input" placeholder="36AAAAA0000A1Z5" style="text-transform:uppercase;" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Credit Limit (₹)</label>
+          <input type="number" id="nc_creditLimit" class="form-input" value="300000" min="0" />
+        </div>
+      </div>
+      <div id="ncError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;margin-top:10px;font-size:0.85rem;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="submit" id="saveCustomerBtn" class="btn-primary">Save Customer</button>
+      </div>
+    </form>
+  `;
+
+  document.getElementById('addCustomerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('saveCustomerBtn');
+    const errDiv = document.getElementById('ncError');
+    const name = document.getElementById('nc_name').value.trim();
+    if (!name) { errDiv.textContent = 'Customer name is required.'; errDiv.style.display = 'block'; return; }
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    errDiv.style.display = 'none';
+    try {
+      const newCust = await customersService.create({
+        name,
+        phone: document.getElementById('nc_phone').value.trim() || '',
+        address: document.getElementById('nc_address').value.trim() || '',
+        gst_number: document.getElementById('nc_gst').value.trim().toUpperCase() || '',
+        credit_limit: Number(document.getElementById('nc_creditLimit').value) || 300000,
+        is_active: true
+      });
+      // Add to in-memory store so it's immediately available
+      if (!store.data.customers) store.data.customers = [];
+      store.data.customers.push({ ...newCust, balancePending: 0, totalPurchased: 0, totalPaid: 0 });
+      store.notify();
+      closeModal();
+      showToast(`Customer "${name}" added successfully!`);
+      if (typeof onSuccess === 'function') onSuccess(newCust);
+    } catch(err) {
+      const msg = err.message || 'Error saving customer.';
+      // Surface duplicate key errors helpfully
+      const displayMsg = msg.includes('duplicate') ? `A customer named "${name}" already exists.` : msg;
+      errDiv.textContent = displayMsg;
+      errDiv.style.display = 'block';
+      btn.textContent = 'Save Customer'; btn.disabled = false;
     }
   });
   openModal();
@@ -2114,16 +2406,25 @@ window.openCustomerDetail = function(customerId) {
     <table class="app-table" style="font-size:0.82rem;">
       <thead><tr><th>Invoice</th><th>Date</th><th>Bales</th><th>Total</th><th>Pending</th><th>Status</th></tr></thead>
       <tbody>
-        ${custSales.map(s => `
+        ${custSales.map(s => {
+          const sp = s.balance_pending || s.balancePending || 0;
+          const sd = s.due_date || s.dueDate || '';
+          const isOv = sp > 0 && sd && new Date(sd) < new Date(today);
+          let ds = s.status;
+          if (!ds || ds === 'undefined') ds = sp <= 0 ? 'Paid' : (isOv ? 'Overdue' : ((s.amount_paid||s.amountPaid||0) > 0 ? 'Partially Paid' : 'Pending'));
+          else if (ds === 'Pending' && isOv) ds = 'Overdue';
+          const sc = ds === 'Paid' ? 'badge-ready' : ds === 'Overdue' ? 'badge-overdue' : ds === 'Partially Paid' ? 'badge-blue' : 'badge-fermenting';
+          return `
           <tr style="cursor:pointer;" onclick="window.viewInvoiceDetail('${s.id}')">
             <td><strong style="color:var(--brand-blue);">${s.invoice_number||s.invoiceNumber}</strong></td>
             <td>${store.formatDate(s.invoice_date||s.date)}</td>
             <td>${s.bales_count||s.balesCount}</td>
             <td>${store.formatINR(s.invoice_total||s.invoiceTotal)}</td>
-            <td class="${(s.balance_pending||s.balancePending)>0?'text-red':'text-green'}">${store.formatINR(s.balance_pending||s.balancePending)}</td>
-            <td><span class="badge ${s.status==='Paid'?'badge-ready':'badge-fermenting'}">${s.status}</span></td>
+            <td class="${sp>0?'text-red':'text-green'}">${store.formatINR(sp)}</td>
+            <td><span class="badge ${sc}">${ds}</span></td>
           </tr>
-        `).join('')}
+        `;
+        }).join('')}
         ${custSales.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No invoices yet</td></tr>':''}
       </tbody>
     </table>
