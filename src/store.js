@@ -1153,55 +1153,102 @@ class Store {
     return changed;
   }
 
-  async resetAllData() {
+  async resetAllData(options = {}) {
+    return this.resetSelectedData(options);
+  }
+
+  async resetSelectedData(options = {}) {
     if (!this.canDelete()) {
-      throw new Error('Access denied. Only the Owner can reset all system data.');
+      throw new Error('Access denied. Only the Owner can reset system data.');
     }
 
-    // 1. Wipe backend database completely
+    // Default: everything selected
+    const sel = {
+      sales: true,
+      customers: true,
+      purchases: true,
+      suppliers: true,
+      expenses: true,
+      batches: true,
+      plots: true,
+      rawMaterials: true,
+      ...options
+    };
+
+    // 1. Wipe Supabase in correct FK order (child tables first)
+    const del = async (table) => {
+      try {
+        const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) console.warn(`Reset delete ${table}:`, error.message);
+      } catch(e) { console.warn(`Reset delete ${table} threw:`, e.message); }
+    };
+    const upd = async (table, vals, filter = {}) => {
+      try {
+        let q = supabase.from(table).update(vals);
+        // Apply a filter that matches all rows
+        q = q.neq('id', '00000000-0000-0000-0000-000000000000');
+        const { error } = await q;
+        if (error) console.warn(`Reset update ${table}:`, error.message);
+      } catch(e) { console.warn(`Reset update ${table} threw:`, e.message); }
+    };
+
+    // Try SQL RPC first (bypasses RLS)
+    let rpcOk = false;
     try {
-      await systemService.resetEverything();
-    } catch (err) {
-      console.warn('Backend reset warning:', err.message);
+      const { data, error } = await supabase.rpc('reset_selected_data', { options: sel });
+      if (!error && data?.success) rpcOk = true;
+    } catch(e) {}
+
+    if (!rpcOk) {
+      // Fallback: direct table deletes (requires RLS DELETE policies)
+      if (sel.sales || sel.customers) {
+        await del('sale_payments');
+        await del('sale_line_items');
+        await del('sales');
+      }
+      if (sel.purchases || sel.suppliers) {
+        await del('purchase_payments');
+        await del('purchases');
+      }
+      if (sel.expenses) await del('expenses');
+      await del('attachments');
+      await del('inventory_movements');
+      if (sel.batches || sel.plots) await del('production_batches');
+      if (sel.plots) {
+        await upd('plot_inventory', { status: 'Empty', bales_remaining: 0, bales_original: 0, batch_id: null, cost_per_bale: 0, ferm_start: null, ready_date: null });
+      }
+      if (sel.rawMaterials) {
+        await upd('raw_materials', { stock_kg: 0 });
+      }
+      if (sel.suppliers) await del('suppliers');
+      if (sel.customers) await del('customers');
     }
 
-    // 2. Clear all cached data (fermentation timers + data cache)
+    // 2. Clear cache
     try { localStorage.removeItem('bms_minute_fermentations'); } catch(e) {}
     this._clearCache();
 
-    // 3. Immediately zero out all in-memory operational and finance records
-    this.data.batches = [];
-    this.data.purchases = [];
-    this.data.sales = [];
-    this.data.expenses = [];
-    this.data.suppliers = [];
-    this.data.customers = [];
-    this.data.rawMaterial = { stockKg: 0, averageCostPerKg: 0 };
+    // 3. Clear in-memory state for selected categories
+    if (sel.batches) this.data.batches = [];
+    if (sel.purchases) this.data.purchases = [];
+    if (sel.sales) this.data.sales = [];
+    if (sel.expenses) this.data.expenses = [];
+    if (sel.suppliers) this.data.suppliers = [];
+    if (sel.customers) this.data.customers = [];
+    if (sel.rawMaterials) this.data.rawMaterial = { stockKg: 0, averageCostPerKg: 0 };
+    if (sel.plots) {
+      (this.data.plots || []).forEach(p => {
+        p.bales = 0; p.status = 'Empty'; p.batchId = null; p.batchNumber = '';
+        p.prodDate = ''; p.fermStart = ''; p.readyDate = '';
+        p.fermUnit = null; p.fermDuration = null; p.fermEndTimestamp = null; p.costPerBale = 0;
+      });
+    }
 
-    // 4. Empty all plots in memory
-    (this.data.plots || []).forEach(p => {
-      p.bales = 0;
-      p.status = 'Empty';
-      p.batchId = null;
-      p.batchNumber = '';
-      p.prodDate = '';
-      p.fermStart = '';
-      p.readyDate = '';
-      p.fermUnit = null;
-      p.fermDuration = null;
-      p.fermEndTimestamp = null;
-      p.costPerBale = 0;
-    });
-
-    // 5. Notify immediately so UI shows zero before reload
+    // 4. Notify immediately (show zeros)
     this.notify();
 
-    // 6. Reload from Supabase to confirm zero state (data should now be empty)
-    try {
-      await this.loadAll();
-    } catch(e) {
-      console.warn('Post-reset reload warning:', e.message);
-    }
+    // 5. Reload from Supabase to confirm state
+    try { await this.loadAll(); } catch(e) { console.warn('Post-reset reload:', e.message); }
 
     this.notify();
     return true;

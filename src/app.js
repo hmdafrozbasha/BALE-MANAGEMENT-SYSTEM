@@ -3008,37 +3008,61 @@ window.enable30DayMode = () => {
 };
 window.confirmResetEverything = function() {
   if (!store.canDelete()) {
-    showToast('Access denied. Only the Owner can reset all data.', 'error');
+    showToast('Access denied. Only the Owner can reset data.', 'error');
     return;
   }
 
-  modalTitle.textContent = '⚠️ Confirm: Reset Everything';
+  modalTitle.textContent = '⚠️ Reset System Data';
+  modalBody.id = 'resetModal';
   modalBody.innerHTML = `
-    <div style="padding:6px 0;">
-      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
-        <span style="font-size:2.5rem;line-height:1;">💣</span>
-        <div>
-          <div style="font-size:1.1rem;font-weight:700;color:#991b1b;">Permanently Delete All System Data?</div>
-          <div style="font-size:0.88rem;color:var(--text-sub);margin-top:6px;line-height:1.45;">
-            This will permanently delete:
-            <ul style="margin:8px 0 8px 18px;font-size:0.84rem;color:#7f1d1d;line-height:1.4;">
-              <li>All purchase bills, supplier accounts & payment ledgers</li>
-              <li>All bale sales, customer invoices & receivables history</li>
-              <li>All production batches, costs & fermentation records</li>
-              <li>All raw material stock & plot bales (all plots will be set to Empty)</li>
-              <li>All uploaded invoice and receipt attachments</li>
-              <li>All expense entries & audit movements</li>
-            </ul>
-            <strong>Are you absolutely sure you want to start completely fresh?</strong>
-          </div>
-        </div>
+    <div style="padding:4px 0;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:2rem;">&#128163;</span>
+        <div style="font-size:1rem;font-weight:700;color:#991b1b;">Select what to permanently delete:</div>
       </div>
-      <div id="resetError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;font-size:0.85rem;margin-bottom:12px;"></div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_sales" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#128419; Sales &amp; Invoices</div><div style="font-size:0.75rem;color:#b91c1c;">All invoices, payments, receivables</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_customers" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#128101; Customers</div><div style="font-size:0.75rem;color:#b91c1c;">All customer accounts &amp; credit limits</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_purchases" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#128699; Purchases &amp; Bills</div><div style="font-size:0.75rem;color:#b91c1c;">All purchase bills &amp; payment ledgers</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_suppliers" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#127981; Suppliers</div><div style="font-size:0.75rem;color:#b91c1c;">All supplier accounts &amp; contacts</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_expenses" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#128184; Expenses</div><div style="font-size:0.75rem;color:#b91c1c;">All expense entries</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_batches" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#127806; Production Batches</div><div style="font-size:0.75rem;color:#b91c1c;">All batches &amp; fermentation records</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_plots" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#127793; Plot Inventory</div><div style="font-size:0.75rem;color:#b91c1c;">Clear bales, set all plots to Empty</div></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_rawmat" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span><div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">&#128230; Raw Material Stock</div><div style="font-size:0.75rem;color:#b91c1c;">Reset stock to 0 kg</div></span>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" onclick="document.querySelectorAll('#resetModal input[type=checkbox]').forEach(c=>c.checked=true)" style="font-size:0.78rem;padding:4px 10px;border-radius:6px;background:rgba(220,38,38,0.1);color:#991b1b;border:1px solid #fca5a5;cursor:pointer;">Select All</button>
+        <button type="button" onclick="document.querySelectorAll('#resetModal input[type=checkbox]').forEach(c=>c.checked=false)" style="font-size:0.78rem;padding:4px 10px;border-radius:6px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;cursor:pointer;">Deselect All</button>
+      </div>
+      <div id="resetError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;font-size:0.85rem;margin-bottom:10px;"></div>
+      <div style="font-size:0.8rem;color:#6b7280;margin-bottom:14px;">&#9888; This action is <strong>permanent</strong> and cannot be undone.</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
         <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
-        <button type="button" id="doResetEverythingBtn" class="btn-danger" style="background:#dc2626;padding:10px 22px;font-weight:700;">
-          💣 Yes, Reset Everything Now
-        </button>
+        <button type="button" id="doResetEverythingBtn" class="btn-danger" style="background:#dc2626;padding:10px 22px;font-weight:700;">&#128163; Reset Selected</button>
       </div>
     </div>
   `;
@@ -3046,24 +3070,39 @@ window.confirmResetEverything = function() {
   document.getElementById('doResetEverythingBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('doResetEverythingBtn');
     const errDiv = document.getElementById('resetError');
-    btn.textContent = 'Wiping everything…';
+    const options = {
+      sales:        document.getElementById('rst_sales')?.checked ?? true,
+      customers:    document.getElementById('rst_customers')?.checked ?? true,
+      purchases:    document.getElementById('rst_purchases')?.checked ?? true,
+      suppliers:    document.getElementById('rst_suppliers')?.checked ?? true,
+      expenses:     document.getElementById('rst_expenses')?.checked ?? true,
+      batches:      document.getElementById('rst_batches')?.checked ?? true,
+      plots:        document.getElementById('rst_plots')?.checked ?? true,
+      rawMaterials: document.getElementById('rst_rawmat')?.checked ?? true,
+    };
+    if (!Object.values(options).some(Boolean)) {
+      errDiv.textContent = 'Please select at least one category to reset.';
+      errDiv.style.display = 'block';
+      return;
+    }
+    btn.textContent = 'Wiping...';
     btn.disabled = true;
     errDiv.style.display = 'none';
     try {
-      showLoading('Wiping all system and database records…');
-      await store.resetAllData();
+      showLoading('Wiping selected data...');
+      await store.resetSelectedData(options);
       dashboardMetrics = null;
       hideLoading();
+      modalBody.id = '';
       closeModal();
-      // Navigate to dashboard and await full re-render so fresh zero data is shown
       currentTab = 'dashboard';
       await renderDashboard();
-      showToast('All data has been completely wiped clean! System reset.', 'info');
+      showToast('Selected data deleted successfully.', 'info');
     } catch (err) {
       hideLoading();
       errDiv.textContent = err.message || 'Error resetting system.';
       errDiv.style.display = 'block';
-      btn.textContent = '💣 Yes, Reset Everything Now';
+      btn.textContent = '&#128163; Reset Selected';
       btn.disabled = false;
     }
   });
