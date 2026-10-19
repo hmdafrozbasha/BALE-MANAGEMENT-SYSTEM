@@ -2269,6 +2269,7 @@ window.openNewInvoiceModal = function(opts = {}) {
             `;
           }).join('')}
         </div>
+        <div id="plotAllocationStatus" style="margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:0.83rem;display:none;"></div>
       </div>
 
       <div class="form-grid-3">
@@ -2321,7 +2322,74 @@ window.openNewInvoiceModal = function(opts = {}) {
     </form>
   `;
 
+  const updatePlotAllocations = () => {
+    const totalBales = Number(document.getElementById('s_balesCount').value) || 0;
+    const checked = Array.from(document.querySelectorAll('input[name="selectedReadyPlots"]:checked'));
+    const statusDiv = document.getElementById('plotAllocationStatus');
+    const saveBtn = document.getElementById('saveSaleBtn');
+    if (!statusDiv) return;
+
+    let selectedCapacity = 0;
+    checked.forEach(cb => {
+      const p = store.data.plots.find(pt => pt.plot_name === cb.value);
+      selectedCapacity += p ? (p.bales || 0) : (Number(cb.dataset.max) || 0);
+    });
+
+    const totalSystemReady = readyPlots.reduce((sum, p) => sum + (p.bales || 0), 0);
+
+    if (totalBales <= 0) {
+      if (checked.length === 0) {
+        statusDiv.style.display = 'none';
+      } else {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#f1f5f9';
+        statusDiv.style.border = '1px solid #cbd5e1';
+        statusDiv.style.color = 'var(--text-sub)';
+        statusDiv.innerHTML = `📦 Selected plot capacity: <strong>${selectedCapacity} bales</strong> available across selected plots.`;
+      }
+      return;
+    }
+
+    statusDiv.style.display = 'block';
+
+    if (checked.length === 0) {
+      statusDiv.style.background = '#fee2e2';
+      statusDiv.style.border = '1px solid #f87171';
+      statusDiv.style.color = '#b91c1c';
+      statusDiv.innerHTML = `⚠️ <strong>No plot selected!</strong> Please select at least one ready plot above to debit <strong>${totalBales} bales</strong> from.`;
+      return;
+    }
+
+    if (totalBales > selectedCapacity) {
+      const deficit = totalBales - selectedCapacity;
+      const canFulfill = totalBales <= totalSystemReady;
+
+      statusDiv.style.background = '#fffbeb';
+      statusDiv.style.border = '1px solid #f59e0b';
+      statusDiv.style.color = '#92400e';
+      statusDiv.innerHTML = `
+        <div style="font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+          <span>⚠️ Insufficient stock in selected plot(s)!</span>
+        </div>
+        <div>
+          You entered <strong>${totalBales} bales</strong>, but selected plot(s) only have <strong>${selectedCapacity} bales</strong> (needs <strong>${deficit} more</strong>).
+        </div>
+        <div style="margin-top:6px;font-size:0.8rem;color:#78350f;">
+          ${canFulfill
+            ? `👉 <strong>Please select an additional ready plot above</strong> to debit the remaining <strong>${deficit} bales</strong>, or reduce the total bales.`
+            : `❌ Total available across ALL ready plots is only <strong>${totalSystemReady} bales</strong>. Please reduce the total bale count.`}
+        </div>
+      `;
+    } else {
+      statusDiv.style.background = '#f0fdf4';
+      statusDiv.style.border = '1px solid var(--green-border)';
+      statusDiv.style.color = 'var(--green-text)';
+      statusDiv.innerHTML = `✓ <strong>Stock covered:</strong> Selected plots have <strong>${selectedCapacity} bales</strong> available (sufficient to cover <strong>${totalBales} bales</strong>).`;
+    }
+  };
+
   const updateSaleCalc = () => {
+    updatePlotAllocations();
     const bales = Number(document.getElementById('s_balesCount').value) || 0;
     const rate = Number(document.getElementById('s_ratePerBale').value) || 0;
     const gstRate = Number(document.getElementById('s_gstRate').value) || 0;
@@ -2335,6 +2403,10 @@ window.openNewInvoiceModal = function(opts = {}) {
 
   ['s_balesCount','s_ratePerBale','s_gstRate','s_amountPaid'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', updateSaleCalc);
+  });
+
+  document.querySelectorAll('input[name="selectedReadyPlots"]').forEach(cb => {
+    cb.addEventListener('change', updateSaleCalc);
   });
 
   // Handle Inline Quick Add Customer
@@ -2419,21 +2491,35 @@ window.openNewInvoiceModal = function(opts = {}) {
 
       const checked = Array.from(document.querySelectorAll('input[name="selectedReadyPlots"]:checked'));
       const totalBales = Number(document.getElementById('s_balesCount').value) || 0;
+      if (totalBales <= 0) throw new Error('Please enter a valid number of bales sold.');
+      if (checked.length === 0) throw new Error('Please select at least one ready plot for stock dispatch.');
+
+      let selectedCapacity = 0;
+      checked.forEach(cb => {
+        const p = store.data.plots.find(pt => pt.plot_name === cb.value);
+        selectedCapacity += p ? (p.bales || 0) : (Number(cb.dataset.max) || 0);
+      });
+
+      if (totalBales > selectedCapacity) {
+        const deficit = totalBales - selectedCapacity;
+        throw new Error(`Insufficient stock in selected plot(s)! Selected plot(s) have ${selectedCapacity} bales, but invoice requires ${totalBales} bales (${deficit} more needed). Please select an additional ready plot to debit from, or reduce the total bales.`);
+      }
+
       let remaining = totalBales;
       const allocations = [];
 
       checked.forEach(cb => {
         if (remaining <= 0) return;
         const plot = store.data.plots.find(p => p.plot_name === cb.value);
-        if (plot) {
+        if (plot && (plot.bales || 0) > 0) {
           const take = Math.min(plot.bales, remaining);
           allocations.push({ plotId: cb.value, bales: take });
           remaining -= take;
         }
       });
 
-      if (remaining > 0 && allocations.length === 0) {
-        throw new Error('Please select at least one ready plot to allocate stock from.');
+      if (remaining > 0) {
+        throw new Error(`Could not fully allocate ${totalBales} bales. ${remaining} bales still unallocated. Please select another plot.`);
       }
 
       const customer = store.data.customers.find(c => c.id === custId);
