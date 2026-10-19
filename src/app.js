@@ -1,6 +1,7 @@
 import { store } from './store.js';
 import { attachmentsService, reportsService, salesService, purchasesService, batchesService, customersService, suppliersService } from './services/data.service.js';
 import * as XLSX from 'xlsx';
+import { renderGoatFarming } from './views/goat.view.js';
 
 // Application State
 let currentTab = 'dashboard';
@@ -356,6 +357,10 @@ async function render() {
     case 'settings':
       pageTitle.textContent = 'System & Yard Settings';
       renderSettings();
+      break;
+    case 'goat-farming':
+      pageTitle.textContent = '🐐 Goat Farming & Trading';
+      renderGoatFarming();
       break;
     default: await renderDashboard();
   }
@@ -3643,6 +3648,18 @@ function handleQuickAction(action) {
     case 'new-purchase': window.openNewPurchaseModal(); break;
     case 'new-sale': window.openNewInvoiceModal(); break;
     case 'update-stock': navigateTo('plots'); break;
+    case 'new-goat-purchase':
+      navigateTo('goat-farming');
+      setTimeout(() => window.openNewGoatPurchaseModal?.(), 250);
+      break;
+    case 'new-goat-sale':
+      navigateTo('goat-farming');
+      setTimeout(() => window.openNewGoatSaleModal?.(), 250);
+      break;
+    case 'new-goat-expense':
+      navigateTo('goat-farming');
+      setTimeout(() => window.openNewGoatExpenseModal?.(), 250);
+      break;
   }
 }
 
@@ -3659,6 +3676,8 @@ function closeModal() {
 // Global helpers for inline HTML onclick handlers
 window.appNav = navigateTo;
 window.closeModal = closeModal;
+window.openModal = openModal;
+window.showToast = showToast;
 window.setPlotSection = (sec) => { activePlotSection = sec; renderPlots(); };
 window.setPlotStatus = (st) => { activePlotFilter = st; renderPlots(); };
 window.openAddPlotModal = () => navigateTo('settings');

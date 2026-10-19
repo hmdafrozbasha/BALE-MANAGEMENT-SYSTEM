@@ -133,5 +133,27 @@ export const INITIAL_DATA = {
     { id: 'C1', plot_name: 'C1', section: 'C', bales: 0, batchId: null, batchNumber: '', prodDate: '', fermStart: '', costPerBale: 0, status: 'Empty' },
     { id: 'C2', plot_name: 'C2', section: 'C', bales: 0, batchId: null, batchNumber: '', prodDate: '', fermStart: '', costPerBale: 0, status: 'Empty' },
     { id: 'D1', plot_name: 'D1', section: 'D', bales: 0, batchId: null, batchNumber: '', prodDate: '', fermStart: '', costPerBale: 0, status: 'Empty' }
-  ]
+  ],
+
+  // ─────────────────────────────────────────────────────────────────
+  // GOAT FARMING & TRADING (Strictly Isolated Business Records)
+  // ─────────────────────────────────────────────────────────────────
+  goatSuppliers: [
+    { id: 'gsup-1', name: 'Telangana Livestock Breeders', phone: '+91 98490 55441', city: 'Mahbubnagar', totalPurchased: 0, totalPaid: 0, balancePending: 0 },
+    { id: 'gsup-2', name: 'Deccan Boer & Sirohi Farms', phone: '+91 99881 22334', city: 'Suryapet', totalPurchased: 0, totalPaid: 0, balancePending: 0 }
+  ],
+  goatCustomers: [
+    { id: 'gcust-1', name: 'Hyderabad Mutton Traders', phone: '+91 97000 88991', address: 'Old City, Hyderabad', totalPurchased: 0, totalPaid: 0, balancePending: 0 },
+    { id: 'gcust-2', name: 'Raju Meat Mart', phone: '+91 98481 77665', address: 'Main Road, Warangal', totalPurchased: 0, totalPaid: 0, balancePending: 0 }
+  ],
+  goatPurchases: [],
+  goatGroups: [],
+  goats: [],
+  goatSales: [],
+  goatExpenses: [],
+  goatWeightRecords: [],
+  goatHealthRecords: [],
+  goatSupplierPayments: [],
+  goatCustomerPayments: []
 };
+

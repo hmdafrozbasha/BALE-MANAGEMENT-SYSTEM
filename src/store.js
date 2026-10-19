@@ -9,6 +9,11 @@ import {
   expensesService, reportsService, profilesService, attachmentsService,
   systemService
 } from './services/data.service.js';
+import {
+  goatDashboardService, goatSuppliersService, goatCustomersService,
+  goatPurchasesService, goatGroupsService, goatsService,
+  goatSalesService, goatExpensesService
+} from './services/goat.service.js';
 
 const CACHE_KEY = 'bms_store_cache';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -36,7 +41,19 @@ class Store {
         purchases: this.data.purchases,
         sales: this.data.sales,
         expenses: this.data.expenses,
-        settings: this.data.settings
+        settings: this.data.settings,
+        // Strictly isolated Goat Farming module records
+        goatSuppliers: this.data.goatSuppliers || [],
+        goatCustomers: this.data.goatCustomers || [],
+        goatPurchases: this.data.goatPurchases || [],
+        goatGroups: this.data.goatGroups || [],
+        goats: this.data.goats || [],
+        goatSales: this.data.goatSales || [],
+        goatExpenses: this.data.goatExpenses || [],
+        goatWeightRecords: this.data.goatWeightRecords || [],
+        goatHealthRecords: this.data.goatHealthRecords || [],
+        goatSupplierPayments: this.data.goatSupplierPayments || [],
+        goatCustomerPayments: this.data.goatCustomerPayments || []
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
     } catch(e) { /* quota exceeded — ignore */ }
@@ -166,6 +183,16 @@ class Store {
           purchasesService.getAll().catch(() => []),
           salesService.getAll().catch(() => []),
           expensesService.getAll().catch(() => [])
+        ] : []),
+        // Parallel Goat Data fetches (strictly independent)
+        goatGroupsService.getAll().catch(() => []),
+        goatsService.getAll().catch(() => []),
+        ...(isFinance ? [
+          goatSuppliersService.getWithBalance().catch(() => []),
+          goatCustomersService.getWithBalance().catch(() => []),
+          goatPurchasesService.getAll().catch(() => []),
+          goatSalesService.getAll().catch(() => []),
+          goatExpensesService.getAll().catch(() => [])
         ] : [])
       ];
 
@@ -220,13 +247,32 @@ class Store {
         this.data.settings.companyName = settingsData.company_name || 'Bale Manager';
       }
 
+      let offset = 3;
       if (isFinance) {
-        const [, , , suppliers, customers, purchases, sales, expenses] = results;
-        this.data.suppliers = suppliers || [];
-        this.data.customers = customers || [];
-        this.data.purchases = purchases || [];
-        this.data.sales = sales || [];
-        this.data.expenses = expenses || [];
+        this.data.suppliers = results[offset++] || [];
+        this.data.customers = results[offset++] || [];
+        this.data.purchases = results[offset++] || [];
+        this.data.sales = results[offset++] || [];
+        this.data.expenses = results[offset++] || [];
+      }
+
+      // Populate goat records if fetched from Supabase (preserve local if remote returned empty array and local has items)
+      const fetchedGoatGroups = results[offset++];
+      const fetchedGoats = results[offset++];
+      if (fetchedGoatGroups && fetchedGoatGroups.length > 0) this.data.goatGroups = fetchedGoatGroups;
+      if (fetchedGoats && fetchedGoats.length > 0) this.data.goats = fetchedGoats;
+
+      if (isFinance) {
+        const fSuppliers = results[offset++];
+        const fCustomers = results[offset++];
+        const fPurchases = results[offset++];
+        const fSales = results[offset++];
+        const fExpenses = results[offset++];
+        if (fSuppliers && fSuppliers.length > 0) this.data.goatSuppliers = fSuppliers;
+        if (fCustomers && fCustomers.length > 0) this.data.goatCustomers = fCustomers;
+        if (fPurchases && fPurchases.length > 0) this.data.goatPurchases = fPurchases;
+        if (fSales && fSales.length > 0) this.data.goatSales = fSales;
+        if (fExpenses && fExpenses.length > 0) this.data.goatExpenses = fExpenses;
       }
 
       // Persist fresh data to cache
@@ -281,6 +327,20 @@ class Store {
         this.data.settings.companyName = snap.settings.companyName || 'Bale Manager';
         this.data.settings.activeRole = snap.settings.activeRole || this.data.settings.activeRole;
       }
+
+      // Hydrate goat data from cache
+      if (snap.goatSuppliers) this.data.goatSuppliers = snap.goatSuppliers;
+      if (snap.goatCustomers) this.data.goatCustomers = snap.goatCustomers;
+      if (snap.goatPurchases) this.data.goatPurchases = snap.goatPurchases;
+      if (snap.goatGroups) this.data.goatGroups = snap.goatGroups;
+      if (snap.goats) this.data.goats = snap.goats;
+      if (snap.goatSales) this.data.goatSales = snap.goatSales;
+      if (snap.goatExpenses) this.data.goatExpenses = snap.goatExpenses;
+      if (snap.goatWeightRecords) this.data.goatWeightRecords = snap.goatWeightRecords;
+      if (snap.goatHealthRecords) this.data.goatHealthRecords = snap.goatHealthRecords;
+      if (snap.goatSupplierPayments) this.data.goatSupplierPayments = snap.goatSupplierPayments;
+      if (snap.goatCustomerPayments) this.data.goatCustomerPayments = snap.goatCustomerPayments;
+
       // Restore minute fermentation countdowns
       try {
         const minuteCountdowns = JSON.parse(localStorage.getItem('bms_minute_fermentations') || '{}');
@@ -1359,6 +1419,668 @@ class Store {
 
     this.notify();
     return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // GOAT FARMING & TRADING METHODS (Strictly Isolated Business Logic)
+  // ─────────────────────────────────────────────────────────────────
+
+  getGoatDashboardMetrics(month) {
+    const curMonth = month || this.getCurrentDate().slice(0, 7);
+    const goats = this.data.goats || [];
+    const groups = this.data.goatGroups || [];
+    const purchases = this.data.goatPurchases || [];
+    const sales = this.data.goatSales || [];
+    const expenses = this.data.goatExpenses || [];
+
+    // 1 & 2: Active individual goats
+    const activeGoats = goats.filter(g => g.status === 'Active' || g.status === 'Available for Sale');
+    const indivGoatsCount = activeGoats.length;
+    const indivValuation = activeGoats.reduce((sum, g) => sum + Number(g.total_cost_basis || g.totalCostBasis || g.acquisition_cost || 0), 0);
+
+    // 3: Active groups
+    const activeGroups = groups.filter(g => Number(g.current_quantity || g.currentQuantity || 0) > 0 && g.status !== 'Archived' && g.status !== 'Sold Out');
+    const activeGroupsCount = activeGroups.length;
+    const groupGoatsCount = activeGroups.reduce((sum, g) => sum + Number(g.current_quantity || g.currentQuantity || 0), 0);
+    const groupValuation = activeGroups.reduce((sum, g) => sum + Number(g.total_cost_basis || g.totalCostBasis || 0), 0);
+
+    const totalGoatsOwned = indivGoatsCount + groupGoatsCount;
+    const herdInventoryValue = indivValuation + groupValuation;
+
+    // 4: Purchases this month
+    const purchasesMonth = purchases
+      .filter(p => (p.purchase_date || p.purchaseDate || '').startsWith(curMonth))
+      .reduce((sum, p) => sum + Number(p.total_acquisition_cost || p.totalCost || 0), 0);
+
+    // 5: Sales this month & COGS
+    const monthSales = sales.filter(s => (s.sale_date || s.saleDate || '').startsWith(curMonth));
+    const salesMonth = monthSales.reduce((sum, s) => sum + Number(s.total_amount || s.totalAmount || 0), 0);
+    const cogsMonth = monthSales.reduce((sum, s) => sum + Number(s.total_cogs || s.totalCogs || 0), 0);
+
+    // 6: Expenses this month
+    const expensesMonth = expenses
+      .filter(e => (e.expense_date || e.expenseDate || '').startsWith(curMonth))
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+    // 7: Customer receivables
+    const customerReceivables = sales.reduce((sum, s) => sum + Math.max(0, Number(s.balance_pending || s.balancePending || 0)), 0);
+
+    // 8: Supplier payables
+    const supplierPayables = purchases.reduce((sum, p) => sum + Math.max(0, Number(p.balance_pending || p.balancePending || 0)), 0);
+
+    // 9 & 10: Gross profit and Realized P&L
+    const grossProfit = salesMonth - cogsMonth;
+    const realizedProfitLoss = grossProfit - expensesMonth;
+
+    return {
+      total_goats_owned: totalGoatsOwned,
+      individual_goats_count: indivGoatsCount,
+      active_groups_count: activeGroupsCount,
+      purchases_this_month: purchasesMonth,
+      sales_this_month: salesMonth,
+      expenses_this_month: expensesMonth,
+      customer_receivables: customerReceivables,
+      supplier_payables: supplierPayables,
+      herd_inventory_value: herdInventoryValue,
+      realized_profit_loss: realizedProfitLoss,
+      cogs_this_month: cogsMonth,
+      gross_profit_this_month: grossProfit
+    };
+  }
+
+  async getGoatDashboardMetricsAsync(month) {
+    try {
+      const rpcData = await goatDashboardService.getMetrics(month);
+      if (rpcData && typeof rpcData === 'object') return rpcData;
+    } catch(e) {}
+    return this.getGoatDashboardMetrics(month);
+  }
+
+  async addGoatPurchase(purchaseInput) {
+    const isGroup = purchaseInput.purchase_method === 'group';
+    const qty = Number(purchaseInput.quantity) || 1;
+    const pricePerGoat = Number(purchaseInput.price_per_goat) || 0;
+    const baseAmount = Number(purchaseInput.base_amount) || (qty * pricePerGoat);
+    const transport = Number(purchaseInput.transport_expense) || 0;
+    const other = Number(purchaseInput.other_initial_costs) || 0;
+    const totalCost = baseAmount + transport + other;
+    const allocatedPerGoat = Math.round((totalCost / qty) * 100) / 100;
+    const paid = Number(purchaseInput.amount_paid) || 0;
+    const balance = totalCost - paid;
+
+    const purDate = purchaseInput.purchase_date || this.getCurrentDate();
+    const purchaseRef = purchaseInput.purchase_ref || `GOAT-PUR-${purDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newPurchase = {
+      id: purchaseInput.id || `gpur-${Date.now()}`,
+      purchase_ref: purchaseRef,
+      purchase_date: purDate,
+      supplier_id: purchaseInput.supplier_id || `gsup-${Date.now()}`,
+      supplier_name: purchaseInput.supplier_name || 'Direct Livestock Seller',
+      purchase_method: purchaseInput.purchase_method || 'group',
+      quantity: qty,
+      price_per_goat: pricePerGoat,
+      base_amount: baseAmount,
+      initial_total_weight: Number(purchaseInput.initial_total_weight) || 0,
+      transport_expense: transport,
+      other_initial_costs: other,
+      total_acquisition_cost: totalCost,
+      allocated_cost_per_goat: allocatedPerGoat,
+      amount_paid: paid,
+      balance_pending: balance,
+      payment_due_date: purchaseInput.payment_due_date || null,
+      notes: purchaseInput.notes || '',
+      attachment_url: purchaseInput.attachment_url || '',
+      created_at: new Date().toISOString()
+    };
+
+    // Try Supabase save
+    try {
+      const res = await goatPurchasesService.savePurchase({
+        ...newPurchase,
+        goats: purchaseInput.goats
+      });
+      if (res?.purchase_id) newPurchase.id = res.purchase_id;
+      if (res?.purchase_ref) newPurchase.purchase_ref = res.purchase_ref;
+    } catch(e) {
+      console.warn('addGoatPurchase RPC fallback:', e.message);
+    }
+
+    // Add purchase to local store
+    this.data.goatPurchases.unshift(newPurchase);
+
+    // Create inventory records
+    if (isGroup) {
+      const groupCode = purchaseInput.group_code || `GRP-${purDate.slice(0, 4)}-${Math.floor(100 + Math.random() * 900)}`;
+      const groupName = purchaseInput.group_name || `Batch ${groupCode}`;
+      const newGroup = {
+        id: `ggrp-${Date.now()}`,
+        group_code: groupCode,
+        group_name: groupName,
+        purchase_id: newPurchase.id,
+        supplier_id: newPurchase.supplier_id,
+        supplier_name: newPurchase.supplier_name,
+        purchase_date: purDate,
+        initial_quantity: qty,
+        current_quantity: qty,
+        total_cost_basis: totalCost,
+        unit_cost_basis: allocatedPerGoat,
+        initial_total_weight: Number(purchaseInput.initial_total_weight) || 0,
+        current_total_weight: Number(purchaseInput.initial_total_weight) || 0,
+        breed: purchaseInput.breed || 'Mixed/Local',
+        status: 'Active',
+        notes: purchaseInput.notes || '',
+        created_at: new Date().toISOString()
+      };
+      this.data.goatGroups.unshift(newGroup);
+    } else {
+      // Individual registration
+      const goatsArr = Array.isArray(purchaseInput.goats) && purchaseInput.goats.length > 0
+        ? purchaseInput.goats
+        : Array.from({ length: qty }).map((_, i) => ({
+            tag_id: `GT-${Math.floor(100 + Math.random() * 900)}`,
+            breed: purchaseInput.breed || 'Boer',
+            sex: 'Male',
+            initial_weight: Math.round((Number(purchaseInput.initial_total_weight) || 20 * qty) / qty),
+            acquisition_cost: allocatedPerGoat
+          }));
+
+      goatsArr.forEach(g => {
+        const costBasis = Number(g.acquisition_cost) || allocatedPerGoat;
+        const newGoat = {
+          id: `gt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          tag_id: g.tag_id || `GT-${Math.floor(100 + Math.random() * 900)}`,
+          name: g.name || '',
+          purchase_id: newPurchase.id,
+          supplier_id: newPurchase.supplier_id,
+          supplier_name: newPurchase.supplier_name,
+          purchase_date: purDate,
+          breed: g.breed || 'Boer',
+          sex: g.sex || 'Male',
+          age_months: Number(g.age_months) || 12,
+          initial_weight: Number(g.initial_weight) || 0,
+          latest_weight: Number(g.initial_weight) || 0,
+          last_weight_date: purDate,
+          acquisition_cost: costBasis,
+          allocated_costs: 0,
+          total_cost_basis: costBasis,
+          status: 'Active',
+          health_status: 'Healthy',
+          notes: g.notes || '',
+          created_at: new Date().toISOString()
+        };
+        this.data.goats.unshift(newGoat);
+      });
+    }
+
+    // Update or add supplier record
+    let sup = this.data.goatSuppliers.find(s => s.id === newPurchase.supplier_id || s.name === newPurchase.supplier_name);
+    if (!sup) {
+      sup = {
+        id: newPurchase.supplier_id,
+        name: newPurchase.supplier_name,
+        phone: purchaseInput.supplier_phone || '',
+        city: purchaseInput.supplier_city || 'Local',
+        totalPurchased: 0,
+        totalPaid: 0,
+        balancePending: 0
+      };
+      this.data.goatSuppliers.push(sup);
+    }
+    sup.totalPurchased = (Number(sup.totalPurchased) || 0) + totalCost;
+    sup.totalPaid = (Number(sup.totalPaid) || 0) + paid;
+    sup.balancePending = (Number(sup.balancePending) || 0) + balance;
+
+    this._saveCache();
+    this.notify();
+    return newPurchase;
+  }
+
+  async addGoatSupplierPayment(purchaseId, paymentInput) {
+    const pur = this.data.goatPurchases.find(p => p.id === purchaseId || p.purchase_ref === purchaseId);
+    if (!pur) throw new Error('Purchase record not found');
+
+    const amount = Number(paymentInput.amount) || 0;
+    if (amount <= 0) throw new Error('Payment amount must be greater than zero');
+
+    const payment = {
+      id: `gsp-${Date.now()}`,
+      purchase_id: pur.id,
+      payment_date: paymentInput.payment_date || this.getCurrentDate(),
+      amount: amount,
+      payment_method: paymentInput.payment_method || 'Cash',
+      reference_no: paymentInput.reference_no || '',
+      notes: paymentInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await goatPurchasesService.addPayment(payment);
+    } catch(e) {
+      console.warn('addGoatSupplierPayment RPC fallback:', e.message);
+    }
+
+    pur.amount_paid = (Number(pur.amount_paid) || 0) + amount;
+    pur.balance_pending = Math.max(0, (Number(pur.balance_pending) || 0) - amount);
+
+    // Update supplier balance
+    const sup = this.data.goatSuppliers.find(s => s.id === pur.supplier_id || s.name === pur.supplier_name);
+    if (sup) {
+      sup.totalPaid = (Number(sup.totalPaid) || 0) + amount;
+      sup.balancePending = Math.max(0, (Number(sup.balancePending) || 0) - amount);
+    }
+
+    this.data.goatSupplierPayments = this.data.goatSupplierPayments || [];
+    this.data.goatSupplierPayments.unshift(payment);
+
+    this._saveCache();
+    this.notify();
+    return payment;
+  }
+
+  async addGoatSale(saleInput) {
+    const saleDate = saleInput.sale_date || this.getCurrentDate();
+    const invoiceNo = saleInput.invoice_no || `GOAT-SAL-${saleDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const method = saleInput.pricing_method || 'per_goat';
+    const items = saleInput.items || [];
+    const discount = Number(saleInput.discount) || 0;
+    const paid = Number(saleInput.amount_paid) || 0;
+
+    let totalQty = 0;
+    let totalWeight = 0;
+    let subtotal = 0;
+    let totalCogs = 0;
+
+    // Validate items and compute totals
+    items.forEach(it => {
+      const itQty = Number(it.quantity) || 1;
+      const itWeight = Number(it.weight_kg) || 0;
+      const itRate = Number(it.rate) || 0;
+      const itTotal = method === 'per_goat' ? (itQty * itRate) : (itWeight * itRate);
+
+      totalQty += itQty;
+      totalWeight += itWeight;
+      subtotal += itTotal;
+
+      if (it.item_type === 'individual') {
+        const goat = this.data.goats.find(g => g.id === it.goat_id || g.tag_id === it.goat_id);
+        if (!goat) throw new Error(`Goat ${it.goat_id} not found`);
+        if (goat.status === 'Sold') throw new Error(`Goat ${goat.tag_id} is already sold`);
+        if (goat.status === 'Deceased') throw new Error(`Goat ${goat.tag_id} is deceased and cannot be sold`);
+        const costBasis = Number(goat.total_cost_basis || goat.acquisition_cost || 0);
+        it.cost_basis = costBasis;
+        totalCogs += costBasis;
+      } else {
+        const group = this.data.goatGroups.find(g => g.id === it.group_id || g.group_code === it.group_id);
+        if (!group) throw new Error(`Goat group ${it.group_id} not found`);
+        const currQty = Number(group.current_quantity || 0);
+        if (currQty < itQty) throw new Error(`Insufficient inventory in group ${group.group_code}. Available: ${currQty}, requested: ${itQty}`);
+        const unitCost = Number(group.unit_cost_basis || 0);
+        const costBasis = itQty * unitCost;
+        it.cost_basis = costBasis;
+        totalCogs += costBasis;
+      }
+    });
+
+    const totalAmount = Math.max(0, subtotal - discount);
+    const balance = totalAmount - paid;
+    const grossProfit = totalAmount - totalCogs;
+
+    const newSale = {
+      id: saleInput.id || `gsal-${Date.now()}`,
+      invoice_no: invoiceNo,
+      sale_date: saleDate,
+      customer_id: saleInput.customer_id || `gcust-${Date.now()}`,
+      customer_name: saleInput.customer_name || 'Direct Livestock Buyer',
+      pricing_method: method,
+      total_quantity: totalQty,
+      total_weight_kg: totalWeight,
+      subtotal: subtotal,
+      discount: discount,
+      total_amount: totalAmount,
+      amount_paid: paid,
+      balance_pending: balance,
+      total_cogs: totalCogs,
+      gross_profit: grossProfit,
+      payment_due_date: saleInput.payment_due_date || null,
+      notes: saleInput.notes || '',
+      attachment_url: saleInput.attachment_url || '',
+      items: items,
+      created_at: new Date().toISOString()
+    };
+
+    // Try Supabase RPC
+    try {
+      const res = await goatSalesService.saveSale(newSale);
+      if (res?.sale_id) newSale.id = res.sale_id;
+      if (res?.invoice_no) newSale.invoice_no = res.invoice_no;
+    } catch(e) {
+      console.warn('addGoatSale RPC fallback:', e.message);
+    }
+
+    // Apply inventory deductions
+    items.forEach(it => {
+      if (it.item_type === 'individual') {
+        const goat = this.data.goats.find(g => g.id === it.goat_id || g.tag_id === it.goat_id);
+        if (goat) {
+          goat.status = 'Sold';
+          goat.sale_id = newSale.id;
+          goat.sale_date = saleDate;
+        }
+      } else {
+        const group = this.data.goatGroups.find(g => g.id === it.group_id || g.group_code === it.group_id);
+        if (group) {
+          const qtySold = Number(it.quantity) || 1;
+          group.current_quantity = Math.max(0, Number(group.current_quantity || 0) - qtySold);
+          group.total_cost_basis = Math.max(0, Number(group.total_cost_basis || 0) - (qtySold * Number(group.unit_cost_basis || 0)));
+          if (group.current_quantity <= 0) {
+            group.status = 'Sold Out';
+          } else {
+            group.status = 'Partially Sold';
+          }
+        }
+      }
+    });
+
+    this.data.goatSales.unshift(newSale);
+
+    // Update customer balances
+    let cust = this.data.goatCustomers.find(c => c.id === newSale.customer_id || c.name === newSale.customer_name);
+    if (!cust) {
+      cust = {
+        id: newSale.customer_id,
+        name: newSale.customer_name,
+        phone: saleInput.customer_phone || '',
+        address: saleInput.customer_address || '',
+        totalPurchased: 0,
+        totalPaid: 0,
+        balancePending: 0
+      };
+      this.data.goatCustomers.push(cust);
+    }
+    cust.totalPurchased = (Number(cust.totalPurchased) || 0) + totalAmount;
+    cust.totalPaid = (Number(cust.totalPaid) || 0) + paid;
+    cust.balancePending = (Number(cust.balancePending) || 0) + balance;
+
+    this._saveCache();
+    this.notify();
+    return newSale;
+  }
+
+  async addGoatCustomerPayment(saleId, paymentInput) {
+    const sale = this.data.goatSales.find(s => s.id === saleId || s.invoice_no === saleId);
+    if (!sale) throw new Error('Sale invoice not found');
+
+    const amount = Number(paymentInput.amount) || 0;
+    if (amount <= 0) throw new Error('Payment amount must be greater than zero');
+
+    const payment = {
+      id: `gcp-${Date.now()}`,
+      sale_id: sale.id,
+      payment_date: paymentInput.payment_date || this.getCurrentDate(),
+      amount: amount,
+      payment_method: paymentInput.payment_method || 'Cash',
+      reference_no: paymentInput.reference_no || '',
+      notes: paymentInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await goatSalesService.addPayment(payment);
+    } catch(e) {
+      console.warn('addGoatCustomerPayment RPC fallback:', e.message);
+    }
+
+    sale.amount_paid = (Number(sale.amount_paid) || 0) + amount;
+    sale.balance_pending = Math.max(0, (Number(sale.balance_pending) || 0) - amount);
+
+    // Update customer balance
+    const cust = this.data.goatCustomers.find(c => c.id === sale.customer_id || c.name === sale.customer_name);
+    if (cust) {
+      cust.totalPaid = (Number(cust.totalPaid) || 0) + amount;
+      cust.balancePending = Math.max(0, (Number(cust.balancePending) || 0) - amount);
+    }
+
+    this.data.goatCustomerPayments = this.data.goatCustomerPayments || [];
+    this.data.goatCustomerPayments.unshift(payment);
+
+    this._saveCache();
+    this.notify();
+    return payment;
+  }
+
+  async addGoatExpense(expenseInput) {
+    const expDate = expenseInput.expense_date || this.getCurrentDate();
+    const expRef = expenseInput.expense_ref || `GOAT-EXP-${expDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const amount = Number(expenseInput.amount) || 0;
+    if (amount <= 0) throw new Error('Expense amount must be greater than zero');
+
+    const newExpense = {
+      id: expenseInput.id || `gexp-${Date.now()}`,
+      expense_ref: expRef,
+      expense_date: expDate,
+      category: expenseInput.category || 'Feed',
+      amount: amount,
+      paid_to: expenseInput.paid_to || 'General Vendor',
+      payment_mode: expenseInput.payment_mode || 'Cash',
+      description: expenseInput.description || '',
+      related_goat_id: expenseInput.related_goat_id || null,
+      related_group_id: expenseInput.related_group_id || null,
+      attachment_url: expenseInput.attachment_url || '',
+      notes: expenseInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await goatExpensesService.create(newExpense);
+      if (res?.id) newExpense.id = res.id;
+      if (res?.expense_ref) newExpense.expense_ref = res.expense_ref;
+    } catch(e) {
+      console.warn('addGoatExpense RPC fallback:', e.message);
+    }
+
+    this.data.goatExpenses.unshift(newExpense);
+    this._saveCache();
+    this.notify();
+    return newExpense;
+  }
+
+  async recordGoatWeight(weightInput) {
+    const goat = this.data.goats.find(g => g.id === weightInput.goat_id || g.tag_id === weightInput.goat_id);
+    const weight = Number(weightInput.weight_kg) || 0;
+    if (weight <= 0) throw new Error('Weight must be greater than zero');
+
+    const recordDate = weightInput.record_date || this.getCurrentDate();
+    let weightGain = 0;
+
+    if (goat) {
+      const prevWeight = Number(goat.latest_weight || goat.initial_weight || 0);
+      if (prevWeight > 0) weightGain = Math.round((weight - prevWeight) * 100) / 100;
+      goat.latest_weight = weight;
+      goat.last_weight_date = recordDate;
+    }
+
+    const newRecord = {
+      id: `gwt-${Date.now()}`,
+      goat_id: goat?.id || weightInput.goat_id,
+      group_id: weightInput.group_id || null,
+      record_date: recordDate,
+      weight_kg: weight,
+      weight_gain: weightGain,
+      notes: weightInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await goatsService.recordWeight(newRecord);
+    } catch(e) {
+      console.warn('recordGoatWeight RPC fallback:', e.message);
+    }
+
+    this.data.goatWeightRecords = this.data.goatWeightRecords || [];
+    this.data.goatWeightRecords.unshift(newRecord);
+
+    this._saveCache();
+    this.notify();
+    return newRecord;
+  }
+
+  async recordGoatHealth(healthInput) {
+    const goat = this.data.goats.find(g => g.id === healthInput.goat_id || g.tag_id === healthInput.goat_id);
+    const newRecord = {
+      id: `ghl-${Date.now()}`,
+      goat_id: goat?.id || healthInput.goat_id,
+      group_id: healthInput.group_id || null,
+      record_date: healthInput.record_date || this.getCurrentDate(),
+      record_type: healthInput.record_type || 'Vaccination',
+      title_or_vaccine: healthInput.title_or_vaccine || 'General Vaccine',
+      dosage: healthInput.dosage || '',
+      administered_by: healthInput.administered_by || '',
+      next_scheduled_date: healthInput.next_scheduled_date || null,
+      cost: Number(healthInput.cost) || 0,
+      notes: healthInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    if (goat) {
+      if (newRecord.record_type === 'Vaccination') goat.health_status = 'Vaccinated';
+      else if (newRecord.record_type === 'Treatment') goat.health_status = 'Under Treatment';
+    }
+
+    try {
+      await goatsService.recordHealth(newRecord);
+    } catch(e) {
+      console.warn('recordGoatHealth RPC fallback:', e.message);
+    }
+
+    this.data.goatHealthRecords = this.data.goatHealthRecords || [];
+    this.data.goatHealthRecords.unshift(newRecord);
+
+    this._saveCache();
+    this.notify();
+    return newRecord;
+  }
+
+  async markGoatDeceased(deceasedInput) {
+    const goat = this.data.goats.find(g => g.id === deceasedInput.goat_id || g.tag_id === deceasedInput.goat_id);
+    if (!goat) throw new Error('Goat not found');
+
+    goat.status = 'Deceased';
+    goat.health_status = 'Deceased';
+    goat.deceased_date = deceasedInput.deceased_date || this.getCurrentDate();
+    goat.deceased_reason = deceasedInput.deceased_reason || 'Natural/Illness';
+
+    try {
+      await goatsService.markDeceased({
+        goat_id: goat.id,
+        deceased_date: goat.deceased_date,
+        deceased_reason: goat.deceased_reason
+      });
+    } catch(e) {
+      console.warn('markGoatDeceased RPC fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return goat;
+  }
+
+  async convertGoatGroup(convertInput) {
+    const group = this.data.goatGroups.find(g => g.id === convertInput.group_id || g.group_code === convertInput.group_id);
+    if (!group) throw new Error('Group not found');
+
+    const count = Number(convertInput.count) || 1;
+    const currQty = Number(group.current_quantity || 0);
+    if (currQty < count) throw new Error(`Cannot convert ${count} goats; group only has ${currQty} available`);
+
+    const unitCost = Number(group.unit_cost_basis || 0);
+    const goatsList = Array.isArray(convertInput.goats) && convertInput.goats.length > 0
+      ? convertInput.goats
+      : Array.from({ length: count }).map((_, i) => ({
+          tag_id: `GT-${Math.floor(100 + Math.random() * 900)}`,
+          breed: group.breed || 'Mixed/Local',
+          sex: 'Male',
+          initial_weight: Math.round((Number(group.current_total_weight || 0) / currQty) * 10) / 10 || 22
+        }));
+
+    goatsList.forEach(g => {
+      const newGoat = {
+        id: `gt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        tag_id: g.tag_id || `GT-${Math.floor(100 + Math.random() * 900)}`,
+        name: g.name || '',
+        group_id: group.id,
+        group_code: group.group_code,
+        purchase_id: group.purchase_id,
+        supplier_id: group.supplier_id,
+        supplier_name: group.supplier_name,
+        purchase_date: group.purchase_date,
+        breed: g.breed || group.breed || 'Mixed/Local',
+        sex: g.sex || 'Male',
+        age_months: Number(g.age_months) || 10,
+        initial_weight: Number(g.initial_weight) || 0,
+        latest_weight: Number(g.initial_weight) || 0,
+        last_weight_date: this.getCurrentDate(),
+        acquisition_cost: unitCost,
+        allocated_costs: 0,
+        total_cost_basis: unitCost,
+        status: 'Active',
+        health_status: 'Healthy',
+        notes: `Converted from group ${group.group_code}. ${g.notes || ''}`.trim(),
+        created_at: new Date().toISOString()
+      };
+      this.data.goats.unshift(newGoat);
+    });
+
+    group.current_quantity = currQty - count;
+    group.total_cost_basis = Math.max(0, Number(group.total_cost_basis || 0) - (count * unitCost));
+    if (group.current_quantity <= 0) {
+      group.status = 'Archived';
+    }
+
+    try {
+      await goatGroupsService.convertToIndividual({
+        group_id: group.id,
+        count: count,
+        goats: goatsList
+      });
+    } catch(e) {
+      console.warn('convertGoatGroup RPC fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true, count };
+  }
+
+  async deleteGoatRecord(entityType, id) {
+    if (!this.canDelete()) throw new Error('Staff users cannot delete records');
+
+    if (entityType === 'purchase') {
+      this.data.goatPurchases = this.data.goatPurchases.filter(p => p.id !== id);
+      try { await goatPurchasesService.delete(id); } catch(e) {}
+    } else if (entityType === 'sale') {
+      this.data.goatSales = this.data.goatSales.filter(s => s.id !== id);
+      try { await goatSalesService.delete(id); } catch(e) {}
+    } else if (entityType === 'expense') {
+      this.data.goatExpenses = this.data.goatExpenses.filter(e => e.id !== id);
+      try { await goatExpensesService.delete(id); } catch(e) {}
+    } else if (entityType === 'goat') {
+      this.data.goats = this.data.goats.filter(g => g.id !== id);
+      try { await goatsService.delete(id); } catch(e) {}
+    } else if (entityType === 'group') {
+      this.data.goatGroups = this.data.goatGroups.filter(g => g.id !== id);
+      try { await goatGroupsService.delete(id); } catch(e) {}
+    } else if (entityType === 'supplier') {
+      this.data.goatSuppliers = this.data.goatSuppliers.filter(s => s.id !== id);
+      try { await goatSuppliersService.delete(id); } catch(e) {}
+    } else if (entityType === 'customer') {
+      this.data.goatCustomers = this.data.goatCustomers.filter(c => c.id !== id);
+      try { await goatCustomersService.delete(id); } catch(e) {}
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
   }
 
   runFermentationDailyCheck() {

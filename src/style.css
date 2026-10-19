@@ -2006,3 +2006,212 @@ body {
 .section-box strong[style*="color:var(--red-accent)"] {
   color: #D9534F !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   GOAT FARMING MODULE — EMERALD LIQUID GLASS AESTHETICS
+   ══════════════════════════════════════════════════════════════════ */
+
+.goat-subnav-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(11, 48, 36, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  scrollbar-width: none;
+}
+.goat-subnav-container::-webkit-scrollbar {
+  display: none;
+}
+
+.goat-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #B5C9BE;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.goat-subnav-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.goat-subnav-btn.active {
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #10B981 0%, #087F5B 100%);
+  border-color: rgba(183, 243, 107, 0.5);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+.goat-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.goat-view-toggle {
+  display: inline-flex;
+  background: rgba(11, 48, 36, 0.08);
+  border: 1px solid rgba(11, 48, 36, 0.12);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  gap: 4px;
+}
+
+.goat-toggle-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.goat-toggle-btn.active {
+  background: #FFFFFF;
+  color: var(--primary-navy);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.goat-badge-active {
+  background: #DDFCE8;
+  color: #065F46;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.goat-badge-sold {
+  background: #E0E7FF;
+  color: #3730A3;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.goat-badge-deceased {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 1px solid rgba(217, 83, 79, 0.4);
+}
+
+.goat-badge-treatment {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid rgba(232, 162, 58, 0.45);
+}
+
+.goat-reminder-card {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.95) 0%, rgba(253, 230, 138, 0.9) 100%);
+  border: 1px solid rgba(232, 162, 58, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 8px 20px -4px rgba(232, 162, 58, 0.25);
+}
+
+.goat-reminder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #92400E;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   GOAT KPI CARD VARIANTS — White Glass base (legible on dark bg)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Total Goats Owned — deep navy glass */
+.kpi-card.total-bales {
+  background: linear-gradient(145deg, rgba(11, 48, 36, 0.92) 0%, rgba(4, 26, 19, 0.97) 100%);
+  border: 1px solid rgba(183, 243, 107, 0.25);
+  box-shadow: 0 14px 28px -8px rgba(4, 26, 19, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.12);
+}
+.kpi-card.total-bales .kpi-label  { color: rgba(183, 243, 107, 0.8); }
+.kpi-card.total-bales .kpi-value  { color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.kpi-card.total-bales .kpi-subtext { color: rgba(183, 243, 107, 0.6); }
+
+/* Herd Inventory Value — white glass */
+.kpi-card.empty {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+.kpi-card.empty .kpi-label  { color: #44594F; }
+.kpi-card.empty .kpi-value  { color: #0B3024; }
+.kpi-card.empty .kpi-subtext { color: #6B7280; }
+
+/* Purchases This Month — warm white glass */
+.kpi-card.purchases-kpi {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+.kpi-card.purchases-kpi .kpi-label  { color: #44594F; }
+.kpi-card.purchases-kpi .kpi-value  { color: #B45309; }
+.kpi-card.purchases-kpi .kpi-subtext { color: #6B7280; }
+
+/* Sales This Month — emerald glass */
+.kpi-card.revenue-kpi {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.90) 0%, rgba(8, 127, 91, 0.95) 55%, rgba(7, 36, 26, 0.98) 100%);
+  border: 1px solid rgba(183, 243, 107, 0.40);
+  box-shadow: 0 14px 28px -8px rgba(16, 185, 129, 0.38), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+.kpi-card.revenue-kpi .kpi-label  { color: rgba(221, 252, 232, 0.9); }
+.kpi-card.revenue-kpi .kpi-value  { color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+.kpi-card.revenue-kpi .kpi-subtext { color: #B7F36B; }
+
+/* Rearing Expenses — white glass with red accent */
+.kpi-card.expenses-kpi {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+.kpi-card.expenses-kpi .kpi-label  { color: #44594F; }
+.kpi-card.expenses-kpi .kpi-value  { color: #D9534F; }
+.kpi-card.expenses-kpi .kpi-subtext { color: #6B7280; }
+
+/* Realized Net Profit — green glass */
+.kpi-card.profit-kpi {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.88) 0%, rgba(8, 127, 91, 0.94) 55%, rgba(7, 36, 26, 0.97) 100%);
+  border: 1px solid rgba(183, 243, 107, 0.38);
+  box-shadow: 0 14px 28px -8px rgba(16, 185, 129, 0.36), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+.kpi-card.profit-kpi .kpi-label  { color: rgba(221, 252, 232, 0.9); }
+.kpi-card.profit-kpi .kpi-value  { color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+.kpi-card.profit-kpi .kpi-subtext { color: #B7F36B; }
+
+/* Realized Net Loss — red glass */
+.kpi-card.loss-kpi {
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.88) 0%, rgba(185, 28, 28, 0.94) 55%, rgba(69, 10, 10, 0.97) 100%);
+  border: 1px solid rgba(252, 165, 165, 0.38);
+  box-shadow: 0 14px 28px -8px rgba(185, 28, 28, 0.36), inset 0 1px 2px rgba(255, 255, 255, 0.45);
+}
+.kpi-card.loss-kpi .kpi-label  { color: rgba(254, 226, 226, 0.9); }
+.kpi-card.loss-kpi .kpi-value  { color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+.kpi-card.loss-kpi .kpi-subtext { color: #FCA5A5; }
+

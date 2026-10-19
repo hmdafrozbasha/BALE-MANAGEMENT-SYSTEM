@@ -52,6 +52,10 @@
           <span class="nav-icon">📈</span>
           <span>Reports</span>
         </a>
+        <a class="nav-item" data-tab="goat-farming">
+          <span class="nav-icon">🐐</span>
+          <span>Goat Farming</span>
+        </a>
         <a class="nav-item" data-tab="settings">
           <span class="nav-icon">⚙️</span>
           <span>Settings</span>
@@ -135,24 +139,33 @@
   <!-- Quick Action Popover Menu (Phone & Header Trigger) -->
   <div class="quick-menu-popover" id="quickMenuPopover">
     <button class="quick-menu-item" data-action="new-expense">
-      <span>💸</span> <span>Add Expense</span>
+      <span>💸</span> <span>Add Bale Expense</span>
     </button>
     <button class="quick-menu-item" data-action="new-production">
       <span>🏭</span> <span>New Production Batch</span>
     </button>
     <button class="quick-menu-item finance-required" data-action="new-purchase">
-      <span>🛒</span> <span>New Purchase Bill</span>
+      <span>🛒</span> <span>New Bale Purchase</span>
     </button>
     <button class="quick-menu-item finance-required" data-action="new-sale">
       <span>💼</span> <span>New Bale Invoice</span>
     </button>
-    <button class="quick-menu-item" data-action="update-stock">
-      <span>📦</span> <span>Update Plot Stock</span>
+    <button class="quick-menu-item" data-action="new-goat-purchase">
+      <span>🐐</span> <span>New Goat Purchase</span>
+    </button>
+    <button class="quick-menu-item" data-action="new-goat-sale">
+      <span>💰</span> <span>New Goat Sale</span>
+    </button>
+    <button class="quick-menu-item" data-action="new-goat-expense">
+      <span>🌿</span> <span>Add Goat Expense</span>
     </button>
   </div>
 
   <!-- Mobile More Menu Popover -->
   <div class="quick-menu-popover" id="moreMenuPopover" style="left: auto; right: 12px; bottom: 70px;">
+    <button class="quick-menu-item" data-tab="goat-farming">
+      <span>🐐</span> <span>Goat Farming</span>
+    </button>
     <button class="quick-menu-item finance-required" data-tab="purchases">
       <span>🛒</span> <span>Purchases & Suppliers</span>
     </button>
