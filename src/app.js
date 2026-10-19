@@ -384,6 +384,7 @@ function showToast(msg, type = 'success') {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3500);
 }
+window.showToast = showToast;
 
 // ─────────────────────────────────────────────────────────────────
 // DASHBOARD

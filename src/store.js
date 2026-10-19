@@ -428,7 +428,12 @@ class Store {
   }
 
   // ─── Role & Permissions ──────────────────────────────────────────
-  getRole() { return this.data.settings.activeRole || 'Staff'; }
+  getRole() {
+    const raw = String(this.data.settings?.activeRole || 'Staff').trim().toLowerCase();
+    if (raw === 'owner') return 'Owner';
+    if (raw === 'accountant') return 'Accountant';
+    return 'Staff';
+  }
   canViewFinancials() { return this.getRole() !== 'Staff'; }
   canEditFinancials() { return ['Owner','Accountant'].includes(this.getRole()); }
   canDelete() { return ['Owner','Accountant'].includes(this.getRole()); }
@@ -2056,25 +2061,70 @@ class Store {
     if (!this.canDelete()) throw new Error('Staff users cannot delete records');
 
     if (entityType === 'purchase') {
-      this.data.goatPurchases = this.data.goatPurchases.filter(p => p.id !== id);
+      const pur = (this.data.goatPurchases || []).find(p => p.id === id);
+      if (pur) {
+        // Remove individual goats linked to this purchase
+        this.data.goats = (this.data.goats || []).filter(g => g.purchase_id !== id && g.purchase_id !== pur.id);
+        // Remove batches linked to this purchase
+        this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.purchase_id !== id && g.purchase_id !== pur.id);
+        // Adjust supplier balances
+        const sup = (this.data.goatSuppliers || []).find(s => s.id === pur.supplier_id || s.name === pur.supplier_name);
+        if (sup) {
+          sup.totalPurchased = Math.max(0, (Number(sup.totalPurchased) || 0) - (Number(pur.total_acquisition_cost) || 0));
+          sup.totalPaid = Math.max(0, (Number(sup.totalPaid) || 0) - (Number(pur.amount_paid) || 0));
+          sup.balancePending = Math.max(0, (Number(sup.balancePending) || 0) - (Number(pur.balance_pending) || 0));
+        }
+      }
+      this.data.goatPurchases = (this.data.goatPurchases || []).filter(p => p.id !== id);
       try { await goatPurchasesService.delete(id); } catch(e) {}
     } else if (entityType === 'sale') {
-      this.data.goatSales = this.data.goatSales.filter(s => s.id !== id);
+      const sale = (this.data.goatSales || []).find(s => s.id === id);
+      if (sale) {
+        // Revert any sold goats or deducted groups back to inventory
+        if (Array.isArray(sale.items)) {
+          sale.items.forEach(it => {
+            if (it.item_type === 'individual') {
+              const goat = (this.data.goats || []).find(g => g.id === it.goat_id || g.tag_id === it.goat_id);
+              if (goat) {
+                goat.status = 'Active';
+                delete goat.sale_id;
+                delete goat.sale_date;
+              }
+            } else {
+              const group = (this.data.goatGroups || []).find(g => g.id === it.group_id || g.group_code === it.group_id);
+              if (group) {
+                const qtySold = Number(it.quantity) || 0;
+                group.current_quantity = (Number(group.current_quantity) || 0) + qtySold;
+                group.total_cost_basis = (Number(group.total_cost_basis) || 0) + (qtySold * Number(group.unit_cost_basis || 0));
+                group.status = group.current_quantity > 0 ? 'Active' : 'Sold Out';
+              }
+            }
+          });
+        }
+        // Adjust customer balances
+        const cust = (this.data.goatCustomers || []).find(c => c.id === sale.customer_id || c.name === sale.customer_name);
+        if (cust) {
+          cust.totalPurchased = Math.max(0, (Number(cust.totalPurchased) || 0) - (Number(sale.total_amount) || 0));
+          cust.totalPaid = Math.max(0, (Number(cust.totalPaid) || 0) - (Number(sale.amount_paid) || 0));
+          cust.balancePending = Math.max(0, (Number(cust.balancePending) || 0) - (Number(sale.balance_pending) || 0));
+        }
+      }
+      this.data.goatSales = (this.data.goatSales || []).filter(s => s.id !== id);
       try { await goatSalesService.delete(id); } catch(e) {}
     } else if (entityType === 'expense') {
-      this.data.goatExpenses = this.data.goatExpenses.filter(e => e.id !== id);
+      this.data.goatExpenses = (this.data.goatExpenses || []).filter(e => e.id !== id);
       try { await goatExpensesService.delete(id); } catch(e) {}
     } else if (entityType === 'goat') {
-      this.data.goats = this.data.goats.filter(g => g.id !== id);
+      this.data.goats = (this.data.goats || []).filter(g => g.id !== id);
       try { await goatsService.delete(id); } catch(e) {}
     } else if (entityType === 'group') {
-      this.data.goatGroups = this.data.goatGroups.filter(g => g.id !== id);
+      this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.id !== id);
       try { await goatGroupsService.delete(id); } catch(e) {}
     } else if (entityType === 'supplier') {
-      this.data.goatSuppliers = this.data.goatSuppliers.filter(s => s.id !== id);
+      this.data.goatSuppliers = (this.data.goatSuppliers || []).filter(s => s.id !== id);
       try { await goatSuppliersService.delete(id); } catch(e) {}
     } else if (entityType === 'customer') {
-      this.data.goatCustomers = this.data.goatCustomers.filter(c => c.id !== id);
+      this.data.goatCustomers = (this.data.goatCustomers || []).filter(c => c.id !== id);
       try { await goatCustomersService.delete(id); } catch(e) {}
     }
 

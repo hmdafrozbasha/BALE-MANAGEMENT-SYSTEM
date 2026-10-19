@@ -562,6 +562,9 @@ function renderGoatInventory(container) {
                           <button class="btn-secondary" style="padding:4px 7px;font-size:0.75rem;" title="Record Vaccine / Treatment" onclick="window.openRecordHealthModal('${g.id}')">💉</button>
                           <button class="btn-danger" style="padding:4px 7px;font-size:0.75rem;" title="Mark Deceased" onclick="window.openMarkDeceasedModal('${g.id}', '${g.tag_id}')">⚠️</button>
                         ` : ''}
+                        ${store.canDelete() ? `
+                          <button class="btn-danger" style="padding:4px 7px;font-size:0.75rem;" title="Delete Goat Record" onclick="window.confirmDeleteGoatRecord('goat', '${g.id}', '${g.tag_id}')">🗑</button>
+                        ` : ''}
                       </div>
                     </td>
                   </tr>
@@ -608,9 +611,14 @@ function renderGoatInventory(container) {
                       <span class="badge ${currQty === 0 ? 'goat-badge-sold' : 'goat-badge-active'}">${grp.status}</span>
                     </td>
                     <td>
-                      ${currQty > 0 ? `
-                        <button class="btn-primary" style="padding:4px 10px;font-size:0.76rem;" onclick="window.openConvertGroupModal('${grp.id}')">Convert to Individual 🏷</button>
-                      ` : '<span style="color:var(--text-muted);font-size:0.8rem;">Batch Cleared</span>'}
+                      <div style="display:flex;gap:6px;align-items:center;">
+                        ${currQty > 0 ? `
+                          <button class="btn-primary" style="padding:4px 10px;font-size:0.76rem;" onclick="window.openConvertGroupModal('${grp.id}')">Convert to Individual 🏷</button>
+                        ` : '<span style="color:var(--text-muted);font-size:0.8rem;">Batch Cleared</span>'}
+                        ${store.canDelete() ? `
+                          <button class="btn-danger" style="padding:4px 8px;font-size:0.76rem;" title="Delete Batch Record" onclick="window.confirmDeleteGoatRecord('group', '${grp.id}', '${grp.group_code}')">🗑</button>
+                        ` : ''}
+                      </div>
                     </td>
                   </tr>
                 `;
