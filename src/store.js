@@ -374,6 +374,35 @@ class Store {
   canDelete() { return ['Owner','Accountant'].includes(this.getRole()); }
   canManageUsers() { return this.getRole() === 'Owner'; }
 
+  // ─── Raw Material (Hay) Tracking ─────────────────────────────────
+  isHayMaterial(p) {
+    if (!p) return false;
+    const name = String(p.material_name || p.material || p.name || p.raw_materials?.name || '').trim().toLowerCase();
+    // Only Hay counts towards raw material bale stock
+    return name.includes('hay');
+  }
+
+  getTotalHayPurchasedKg() {
+    const hayPurchases = (this.data.purchases || []).filter(p => this.isHayMaterial(p));
+    return hayPurchases.reduce((sum, p) => {
+      const qty = Number(p.quantity) || 0;
+      const conv = Number(p.kg_conversion) || (p.unit === 'ton' ? 1000 : p.unit === 'load' ? 5000 : p.unit === 'bale' ? 28 : 1);
+      return sum + (Number(p.quantity_kg) || (qty * conv));
+    }, 0);
+  }
+
+  getTotalHayConsumedKg() {
+    return (this.data.batches || []).reduce((sum, b) => {
+      return sum + (Number(b.raw_material_kg || b.rawMaterialKg) || 0);
+    }, 0);
+  }
+
+  getAvailableHayKg() {
+    const totalPurchased = this.getTotalHayPurchasedKg();
+    const totalConsumed = this.getTotalHayConsumedKg();
+    return Math.max(0, totalPurchased - totalConsumed);
+  }
+
   // ─── Dashboard Metrics (from Supabase RPC) ───────────────────────
   async getDashboardMetricsAsync(month) {
     try {
@@ -384,24 +413,14 @@ class Store {
       const metrics = null;
       const payments = [];
 
-
       // Calculate live plot counts from store plots to avoid stale RPC race conditions
       const plotsReady = (this.data.plots || []).filter(p => p.status === 'Ready').reduce((s,p) => s + (Number(p.bales)||0), 0);
       const plotsFerm = (this.data.plots || []).filter(p => p.status === 'Fermenting').reduce((s,p) => s + (Number(p.bales)||0), 0);
 
-      // Calculate real raw material stock: if no purchases exist, raw material stock is 0
-      let realRawKg = 0;
-      if (this.data.purchases && this.data.purchases.length > 0) {
-        const totalPurchasedKg = this.data.purchases.reduce((sum, p) => {
-          const qty = Number(p.quantity) || 0;
-          const conv = Number(p.kg_conversion) || (p.unit === 'ton' ? 1000 : p.unit === 'load' ? 5000 : p.unit === 'bale' ? 28 : 1);
-          return sum + (Number(p.quantity_kg) || (qty * conv));
-        }, 0);
-        const totalConsumedKg = (this.data.batches || []).reduce((sum, b) => sum + (Number(b.raw_material_kg || b.rawMaterialKg) || 0), 0);
-        realRawKg = Math.max(0, totalPurchasedKg - totalConsumedKg);
-      } else {
-        realRawKg = 0;
-      }
+      // Calculate real raw material stock: ONLY Hay purchases count as raw material stock
+      const realRawKg = this.getAvailableHayKg();
+      const totalHayPurchasedKg = this.getTotalHayPurchasedKg();
+      const totalHayConsumedKg = this.getTotalHayConsumedKg();
 
       // Filter batchesReadySoon so that plots that are already 'Ready' are never displayed as fermenting
       const activeFermPlotNames = new Set(
@@ -496,6 +515,8 @@ class Store {
         monthExpenses,
         grossProfit,
         netProfit,
+        totalHayPurchasedKg,
+        totalHayConsumedKg,
         rawMaterialKg: realRawKg,
         rawMaterialBalesEquiv: Math.round(realRawKg / 28),
         monthSoldBales,
@@ -521,16 +542,10 @@ class Store {
     const monthCOGS = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.cogs_total||r.cogsTotal)||0), 0);
     const monthExpenses = this.data.expenses.filter(e => (e.expense_date||e.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.amount)||0), 0);
     
-    let realRawKg = 0;
-    if (this.data.purchases && this.data.purchases.length > 0) {
-      const totalPurchasedKg = this.data.purchases.reduce((sum, p) => {
-        const qty = Number(p.quantity) || 0;
-        const conv = Number(p.kg_conversion) || (p.unit === 'ton' ? 1000 : p.unit === 'load' ? 5000 : p.unit === 'bale' ? 28 : 1);
-        return sum + (Number(p.quantity_kg) || (qty * conv));
-      }, 0);
-      const totalConsumedKg = (this.data.batches || []).reduce((sum, b) => sum + (Number(b.raw_material_kg || b.rawMaterialKg) || 0), 0);
-      realRawKg = Math.max(0, totalPurchasedKg - totalConsumedKg);
-    }
+    const realRawKg = this.getAvailableHayKg();
+    const totalHayPurchasedKg = this.getTotalHayPurchasedKg();
+    const totalHayConsumedKg = this.getTotalHayConsumedKg();
+
     const monthSoldBales = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => {
       const items = r.sale_line_items || r.stockAllocations || [];
       const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
@@ -567,7 +582,25 @@ class Store {
       .sort((a,b) => (a.isMinuteMode ? 0 : 1) - (b.isMinuteMode ? 0 : 1) || (a.secsLeft || a.daysLeft) - (b.secsLeft || b.daysLeft))
       .slice(0, 6);
 
-    return { role: this.getRole(), readyBales, fermentingBales, customerDues, supplierDues, monthSales, monthCOGS, monthExpenses, grossProfit: monthSales - monthCOGS, netProfit: monthSales - monthCOGS - monthExpenses, rawMaterialKg: realRawKg, rawMaterialBalesEquiv: Math.round(realRawKg/28), monthSoldBales, batchesReadySoon, upcomingPayments: [] };
+    return {
+      role: this.getRole(),
+      readyBales,
+      fermentingBales,
+      customerDues,
+      supplierDues,
+      monthSales,
+      monthCOGS,
+      monthExpenses,
+      grossProfit: monthSales - monthCOGS,
+      netProfit: monthSales - monthCOGS - monthExpenses,
+      totalHayPurchasedKg,
+      totalHayConsumedKg,
+      rawMaterialKg: realRawKg,
+      rawMaterialBalesEquiv: Math.round(realRawKg/28),
+      monthSoldBales,
+      batchesReadySoon,
+      upcomingPayments: []
+    };
   }
 
   // ─── Purchase Actions ─────────────────────────────────────────────
@@ -623,6 +656,8 @@ class Store {
         material: purchaseData.material || 'Hay (loose)',
         quantity: qty,
         unit: purchaseData.unit || 'ton',
+        quantity_kg: qty * kgConv,
+        kg_conversion: kgConv,
         rate: rate,
         materialCost: matCost,
         transport: Number(purchaseData.transport) || 0,
@@ -660,6 +695,13 @@ class Store {
     }
 
     const rawKg = Number(batchInput.rawMaterialKg) || 0;
+    const availableHay = this.getAvailableHayKg();
+
+    // STRICT VALIDATION: Cannot consume more Hay than available stock
+    if (rawKg > availableHay) {
+      throw new Error(`Insufficient Hay stock! You entered ${rawKg} kg, but only ${availableHay} kg of Hay is available in stock. Please purchase more Hay first or reduce the quantity.`);
+    }
+
     const rawCost = Number(batchInput.rawMaterialCost) || 0;
     const labour = Number(batchInput.labourCost) || 0;
     const wrapping = Number(batchInput.wrappingCost) || 0;
@@ -730,6 +772,9 @@ class Store {
       this.notify();
       return result;
     } catch(err) {
+      if (err.message && err.message.toLowerCase().includes('insufficient')) {
+        throw err;
+      }
       console.warn('Backend saveBatch failed, updating in local memory:', err.message);
       const newBatch = {
         id: 'batch-' + Date.now(),

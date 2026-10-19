@@ -487,19 +487,22 @@ async function renderDashboard() {
     ` : ''}
 
     <div class="stage-card">
-      <div class="stage-header">
-        <div class="stage-title">Stock by Stage (Bales & Raw Material)</div>
-        <div style="font-size:0.84rem;font-weight:600;color:var(--text-sub);">Raw Stock: ${store.formatNumber(m.rawMaterialKg)} kg (~${store.formatNumber(stageRaw)} bales)</div>
+      <div class="stage-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div class="stage-title">Stock by Stage (Bales & Hay Stock)</div>
+        <div style="font-size:0.84rem;font-weight:600;color:var(--text-sub);text-align:right;">
+          <div>Raw Hay Stock: <strong style="color:#DDFCE8;font-size:0.95rem;">${store.formatNumber(m.rawMaterialKg)} kg</strong> <span style="font-size:0.8rem;color:var(--text-muted);">(~${store.formatNumber(stageRaw)} bales)</span></div>
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:400;margin-top:2px;">(Hay Bought: ${store.formatNumber(m.totalHayPurchasedKg || 0)} kg • Used in Production: ${store.formatNumber(m.totalHayConsumedKg || 0)} kg)</div>
+        </div>
       </div>
       <div class="stacked-bar-container">
-        ${stageRaw > 0 ? `<div class="stacked-segment segment-raw" style="width:${Math.max(8, rawW)}%;" title="Raw Material">Raw (${store.formatNumber(stageRaw)})</div>` : ''}
+        ${stageRaw > 0 ? `<div class="stacked-segment segment-raw" style="width:${Math.max(8, rawW)}%;" title="Raw Hay Stock">Hay (${store.formatNumber(stageRaw)})</div>` : ''}
         ${stageFerm > 0 ? `<div class="stacked-segment segment-fermenting" style="width:${Math.max(8, fermW)}%;" title="Fermenting">Fermenting (${store.formatNumber(stageFerm)})</div>` : ''}
         ${stageReady > 0 ? `<div class="stacked-segment segment-ready" style="width:${Math.max(8, readyW)}%;" title="Ready">Ready (${store.formatNumber(stageReady)})</div>` : ''}
         ${stageSold > 0 ? `<div class="stacked-segment segment-sold" style="width:${Math.max(8, soldW)}%;" title="Sold">Sold (${store.formatNumber(stageSold)})</div>` : ''}
         ${stageTotal === 0 ? '<div style="padding:10px;text-align:center;color:var(--text-muted);width:100%;font-size:0.85rem;">No bales or raw materials recorded yet</div>' : ''}
       </div>
       <div class="stage-legend">
-        <div class="legend-item"><span class="legend-dot" style="background:#64748b;"></span> Raw material (${store.formatNumber(m.rawMaterialKg)} kg)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#64748b;"></span> Raw Hay (${store.formatNumber(m.rawMaterialKg)} kg)</div>
         <div class="legend-item"><span class="legend-dot" style="background:#d97706;"></span> Fermenting (${store.formatNumber(stageFerm)} bales)</div>
         <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> Ready for sale (${store.formatNumber(stageReady)} bales)</div>
         <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> Sold in month (${store.formatNumber(stageSold)} bales)</div>
@@ -1694,6 +1697,7 @@ window.confirmDeleteBatch = function(batchId, batchNumber, plotName) {
 
 window.openNewBatchModal = function() {
   const isFinance = store.canViewFinancials();
+  const availableHay = store.getAvailableHayKg();
 
   // Find plots that already have an active batch assigned (Fermenting or Ready)
   const occupiedPlotNames = new Set();
@@ -1725,8 +1729,16 @@ window.openNewBatchModal = function() {
             <input type="date" id="b_prodDate" class="form-input" value="${store.getCurrentDate()}" required />
           </div>
           <div class="form-group">
-            <label class="form-label">Raw Material Used (kg)</label>
-            <input type="number" id="b_rawKg" class="form-input" value="26500" min="1" required />
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <label class="form-label" style="margin:0;">Raw Hay Used (kg)</label>
+              <span id="hayStockBadge" style="font-size:0.75rem;padding:2px 8px;border-radius:6px;background:${availableHay > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'};color:${availableHay > 0 ? '#86efac' : '#fca5a5'};font-weight:600;border:1px solid ${availableHay > 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'};">
+                In Stock: ${store.formatNumber(availableHay)} kg
+              </span>
+            </div>
+            <input type="number" id="b_rawKg" class="form-input" value="${availableHay > 0 ? Math.min(100, availableHay) : 0}" min="1" max="${availableHay}" required />
+            <div id="hayStockWarning" style="display:${availableHay <= 0 ? 'block' : 'none'};color:#f87171;font-size:0.78rem;margin-top:4px;">
+              ${availableHay <= 0 ? '⚠️ No Hay available in stock! Record a Hay purchase first.' : ''}
+            </div>
           </div>
         </div>
         ${isFinance ? `
@@ -1802,7 +1814,7 @@ window.openNewBatchModal = function() {
         <div id="batchError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;margin-top:10px;font-size:0.85rem;"></div>
         <div style="display:flex;justify-content:flex-end;gap:10px;">
           <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
-          <button type="submit" id="saveBatchBtn" class="btn-primary" ${availablePlots.length===0 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Save Batch</button>
+          <button type="submit" id="saveBatchBtn" class="btn-primary" ${(availablePlots.length===0 || availableHay<=0) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Save Batch</button>
         </div>
       </form>
 
@@ -1838,6 +1850,40 @@ window.openNewBatchModal = function() {
     }
   });
 
+  const rawKgInput = document.getElementById('b_rawKg');
+  const hayStockWarning = document.getElementById('hayStockWarning');
+  const saveBatchBtn = document.getElementById('saveBatchBtn');
+
+  rawKgInput?.addEventListener('input', () => {
+    const val = Number(rawKgInput.value) || 0;
+    if (availableHay <= 0) {
+      if (hayStockWarning) {
+        hayStockWarning.textContent = '⚠️ No Hay available in stock! Record a Hay purchase first.';
+        hayStockWarning.style.display = 'block';
+      }
+      if (saveBatchBtn) { saveBatchBtn.disabled = true; saveBatchBtn.style.opacity = '0.5'; saveBatchBtn.style.cursor = 'not-allowed'; }
+    } else if (val > availableHay) {
+      if (hayStockWarning) {
+        hayStockWarning.textContent = `❌ Entered quantity (${val} kg) exceeds available Hay stock (${store.formatNumber(availableHay)} kg)!`;
+        hayStockWarning.style.display = 'block';
+      }
+      if (saveBatchBtn) { saveBatchBtn.disabled = true; saveBatchBtn.style.opacity = '0.5'; saveBatchBtn.style.cursor = 'not-allowed'; }
+    } else if (val <= 0) {
+      if (hayStockWarning) {
+        hayStockWarning.textContent = '⚠️ Quantity must be greater than 0 kg.';
+        hayStockWarning.style.display = 'block';
+      }
+      if (saveBatchBtn) { saveBatchBtn.disabled = true; saveBatchBtn.style.opacity = '0.5'; saveBatchBtn.style.cursor = 'not-allowed'; }
+    } else {
+      if (hayStockWarning) hayStockWarning.style.display = 'none';
+      if (saveBatchBtn && availablePlots.length > 0) {
+        saveBatchBtn.disabled = false;
+        saveBatchBtn.style.opacity = '1';
+        saveBatchBtn.style.cursor = 'pointer';
+      }
+    }
+  });
+
   if (isFinance) {
     const updateBatchCalc = () => {
       const rawCost = Number(document.getElementById('b_rawCost')?.value) || 0;
@@ -1866,6 +1912,12 @@ window.openNewBatchModal = function() {
     e.preventDefault();
     const btn = document.getElementById('saveBatchBtn');
     const errDiv = document.getElementById('batchError');
+    const rawKgVal = Number(document.getElementById('b_rawKg')?.value) || 0;
+    if (rawKgVal > availableHay) {
+      errDiv.textContent = `Insufficient Hay stock! Available: ${store.formatNumber(availableHay)} kg, requested: ${store.formatNumber(rawKgVal)} kg.`;
+      errDiv.style.display = 'block';
+      return;
+    }
     btn.textContent = 'Saving…'; btn.disabled = true;
     try {
       const fermOpt = document.getElementById('b_fermDurationOption')?.value || '30-day';
