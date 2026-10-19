@@ -1776,20 +1776,29 @@ body {
 .w-full { width: 100%; }
 
 /* ── Canvas Headings & Sub-header Text Contrast on Deep Forest Canvas ── */
-#appContent > div:first-child [style*="color:var(--text-sub)"],
-#appContent > div:first-child {
+.dashboard-topbar,
+.dashboard-topbar [style*="color:var(--text-sub)"] {
   color: rgba(221, 252, 232, 0.88);
 }
 
-#appContent > div:first-child strong {
+.dashboard-topbar strong {
   color: #ffffff;
 }
 
-#appContent > div:first-child label {
+.dashboard-topbar label {
   color: #DDFCE8 !important;
 }
 
 /* Inside frosted white cards, maintain rich deep forest contrast */
+.form-label,
+.form-group label,
+.section-box label,
+.settings-card label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a !important;
+}
+
 .section-box [style*="color:var(--text-sub)"],
 .finance-card [style*="color:var(--text-sub)"],
 .stage-card [style*="color:var(--text-sub)"],
@@ -1800,10 +1809,11 @@ body {
 }
 
 .section-box strong,
+.settings-card strong,
 .finance-card strong,
 .stage-card strong,
 .calc-sidebar-box strong,
 .form-card strong,
 .plots-controls-bar strong {
-  color: var(--bms-forest);
+  color: #0f172a !important;
 }

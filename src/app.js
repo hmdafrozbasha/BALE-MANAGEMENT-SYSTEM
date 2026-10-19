@@ -412,7 +412,7 @@ async function renderDashboard() {
   const soldW = stageTotal > 0 ? Math.max(0, 100 - rawW - fermW - readyW) : 0;
 
   appContent.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <div class="dashboard-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">
         Overview for <strong>${m.role}</strong> • All bale operations & real-time accounts
       </div>
@@ -487,11 +487,15 @@ async function renderDashboard() {
     ` : ''}
 
     <div class="stage-card">
-      <div class="stage-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div class="stage-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
         <div class="stage-title">Stock by Stage (Bales & Hay Stock)</div>
-        <div style="font-size:0.84rem;font-weight:600;color:var(--text-sub);text-align:right;">
-          <div>Raw Hay Stock: <strong style="color:#DDFCE8;font-size:0.95rem;">${store.formatNumber(m.rawMaterialKg)} kg</strong> <span style="font-size:0.8rem;color:var(--text-muted);">(~${store.formatNumber(stageRaw)} bales)</span></div>
-          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:400;margin-top:2px;">(Hay Bought: ${store.formatNumber(m.totalHayPurchasedKg || 0)} kg • Used in Production: ${store.formatNumber(m.totalHayConsumedKg || 0)} kg)</div>
+        <div style="text-align:right;">
+          <div style="font-size:0.92rem;font-weight:600;color:#1e293b;">
+            Raw Hay Stock: <strong style="color:#047857;font-size:1.12rem;font-weight:800;letter-spacing:-0.01em;">${store.formatNumber(m.rawMaterialKg)} kg</strong> <span style="font-size:0.84rem;color:#475569;font-weight:600;">(~${store.formatNumber(stageRaw)} bales)</span>
+          </div>
+          <div style="font-size:0.76rem;color:#64748b;font-weight:500;margin-top:2px;">
+            (Hay Bought: <strong style="color:#0f172a;font-weight:600;">${store.formatNumber(m.totalHayPurchasedKg || 0)} kg</strong> • Used in Production: <strong style="color:#0f172a;font-weight:600;">${store.formatNumber(m.totalHayConsumedKg || 0)} kg</strong>)
+          </div>
         </div>
       </div>
       <div class="stacked-bar-container">
@@ -3230,97 +3234,176 @@ window.exportCurrentReport = function() {
 function renderSettings() {
   const isOwner = store.canManageUsers();
   const settings = store.data.settings;
+  const plots = store.data.plots || [];
+  const sortedPlots = [...plots].sort((a,b) => (a.plot_name||a.id||'').localeCompare(b.plot_name||b.id||''));
 
   appContent.innerHTML = `
-    <div style="max-width:800px;margin:0 auto;">
-      <div class="section-box mb-20">
-        <div class="section-box-header"><div class="box-title">⚙️ Factory & Fermentation Parameters</div></div>
-        <form id="settingsForm">
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label class="form-label">Fermentation Duration (Days)</label>
-              <input type="number" id="setting_fermDays" class="form-input" value="${settings.fermentationDays||30}" min="1" max="180" required />
-              <small style="color:var(--text-muted);font-size:0.75rem;">Default 30 days. Day ${settings.fermentationDays} automatically flags batch as Ready.</small>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Company Name</label>
-              <input type="text" id="setting_companyName" class="form-input" value="${settings.companyName||'Sri Balaji Agro Bales'}" />
-            </div>
-          </div>
-          <div id="settingsMsg" style="display:none;background:#dcfce7;color:#15803d;padding:10px;border-radius:8px;margin-top:10px;font-size:0.85rem;"></div>
-          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-            <button type="submit" id="saveSettingsBtn" class="btn-primary">Save Settings</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="section-box mb-20">
-        <div class="section-box-header"><div class="box-title">🌱 Add New Yard Plot</div></div>
-        <form id="addPlotForm">
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label class="form-label">Plot Identifier</label>
-              <input type="text" id="new_plotId" class="form-input" placeholder="e.g. C3, D2, E1" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Section</label>
-              <select id="new_plotSection" class="form-select">
-                <option value="A">Section A</option>
-                <option value="B">Section B</option>
-                <option value="C" selected>Section C</option>
-                <option value="D">Section D</option>
-                <option value="E">Section E</option>
-              </select>
-            </div>
-          </div>
-          <div id="plotMsg" style="display:none;background:#dcfce7;color:#15803d;padding:10px;border-radius:8px;margin-top:10px;font-size:0.85rem;"></div>
-          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-            <button type="submit" class="btn-navy" id="createPlotBtn">+ Create Plot</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="section-box mb-20" style="border-color:#fed7aa;background:#fffaf0;">
-        <div class="section-box-header" style="border-color:#fed7aa;">
-          <div class="box-title" style="color:#c2410c;">⚡ Rapid Fermentation Testing Mode</div>
+    <div style="max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+      
+      <!-- Top Title & Subtitle -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2 style="font-size:1.35rem;font-weight:800;color:#ffffff;margin:0 0 4px 0;letter-spacing:-0.02em;">⚙️ System & Yard Settings</h2>
+          <div style="font-size:0.86rem;color:rgba(221,252,232,0.85);">Manage factory configurations, yard plot slots, testing modes, and database maintenance.</div>
         </div>
-        <p style="font-size:0.85rem;color:#7c2d12;margin-bottom:12px;">
-          Current mode: <strong>${settings.fermentationUnit === 'minute' ? '⚡ 1-Minute Testing Mode' : `📅 Standard (${settings.fermentationDays||30} Days)`}</strong>.
-          In 1-minute mode, newly created batches ferment for only 60 seconds with live countdown, then auto-turn Ready.
-        </p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button type="button" class="btn-primary" style="background:#ea580c;color:#fff;" onclick="window.enable1MinTestingMode()">
-            ⚡ Set Default: 1-Minute Fermentation
-          </button>
-          <button type="button" class="btn-secondary" onclick="window.enable30DayMode()">
-            📅 Restore Default: 30 Days Fermentation
-          </button>
+        <div>
+          <span style="background:rgba(16,185,129,0.18);color:#86efac;border:1px solid rgba(16,185,129,0.35);padding:6px 14px;border-radius:9999px;font-size:0.82rem;font-weight:700;">
+            Role: ${store.getRole()} (Full Access)
+          </span>
         </div>
       </div>
 
-      <div class="section-box mb-20" style="border:1.5px solid #ef4444;background:#fef2f2;">
-        <div class="section-box-header" style="border-bottom:1px solid #fee2e2;">
-          <div class="box-title" style="color:#991b1b;display:flex;align-items:center;gap:8px;">
-            <span>⚠️</span> <span>Reset Everything (Delete All Data)</span>
-          </div>
-        </div>
-        <p style="font-size:0.85rem;color:#7f1d1d;margin-bottom:14px;line-height:1.45;">
-          Permanently delete all data in the system — all purchases, suppliers, customer invoices, sales, payments, expenses, production batches, and attachments. All yard plots will be emptied. <strong>This action wipes all data from the database and cannot be undone.</strong>
-        </p>
-        <button type="button" class="btn-danger" style="padding:10px 20px;font-weight:700;font-size:0.92rem;background:#dc2626;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.25);" onclick="window.confirmResetEverything()">
-          💣 Reset Everything
-        </button>
-      </div>
+      <!-- Two-Column Responsive Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(460px, 1fr));gap:20px;align-items:start;">
 
-      <div class="section-box mb-20" style="border-color:#fca5a5;background:#fff5f5;">
-        <div class="section-box-header" style="border-color:#fecaca;">
-          <div class="box-title" style="color:#b91c1c;">👤 Sign Out</div>
+        <!-- LEFT COLUMN: Factory Parameters & Yard Plots -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- Card 1: Factory & Fermentation Parameters -->
+          <div class="section-box" style="margin:0;">
+            <div class="section-box-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="box-title" style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.05rem;">🏢</span> <span>Company & Production Defaults</span>
+              </div>
+            </div>
+            <form id="settingsForm" style="padding-top:8px;">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Company / Brand Name</label>
+                  <input type="text" id="setting_companyName" class="form-input" value="${settings.companyName||'Sri Balaji Agro Bales'}" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Standard Curing Period (Days)</label>
+                  <input type="number" id="setting_fermDays" class="form-input" value="${settings.fermentationDays||30}" min="1" max="180" required />
+                  <small style="color:#64748b;font-size:0.75rem;margin-top:3px;">Batches auto-flag Ready after ${settings.fermentationDays||30} days.</small>
+                </div>
+              </div>
+              <div id="settingsMsg" style="display:none;background:#dcfce7;color:#15803d;padding:10px;border-radius:8px;margin-top:12px;font-size:0.85rem;font-weight:600;"></div>
+              <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                <button type="submit" id="saveSettingsBtn" class="btn-primary" style="padding:8px 20px;font-weight:700;">💾 Save Changes</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Card 2: Yard Plot Management -->
+          <div class="section-box" style="margin:0;">
+            <div class="section-box-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="box-title" style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.05rem;">🌱</span> <span>Yard Plots Management</span>
+              </div>
+              <span style="font-size:0.8rem;color:#64748b;font-weight:600;">${sortedPlots.length} Plots Configured</span>
+            </div>
+            <form id="addPlotForm" style="padding-top:8px;">
+              <div style="display:grid;grid-template-columns:1.5fr 1.5fr auto;gap:12px;align-items:end;">
+                <div class="form-group">
+                  <label class="form-label">Plot Identifier</label>
+                  <input type="text" id="new_plotId" class="form-input" placeholder="e.g. C3, D2" style="text-transform:uppercase;" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Yard Section</label>
+                  <select id="new_plotSection" class="form-select">
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C" selected>Section C</option>
+                    <option value="D">Section D</option>
+                    <option value="E">Section E</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <button type="submit" class="btn-primary" id="createPlotBtn" style="padding:10px 18px;white-space:nowrap;font-weight:700;">＋ Add Plot</button>
+                </div>
+              </div>
+              <div id="plotMsg" style="display:none;background:#dcfce7;color:#15803d;padding:10px;border-radius:8px;margin-top:12px;font-size:0.85rem;font-weight:600;"></div>
+            </form>
+
+            <!-- Existing Plot Summary -->
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+              <div style="font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Current Plots in Yard</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow-y:auto;padding:2px;">
+                ${sortedPlots.length === 0 ? '<span style="color:#94a3b8;font-size:0.82rem;">No plots created yet.</span>' : sortedPlots.map(p => {
+                  const name = p.plot_name || p.id;
+                  const isOccupied = p.status === 'Fermenting' || p.status === 'Ready' || (p.bales || 0) > 0;
+                  return `
+                    <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;background:${isOccupied ? '#f1f5f9' : '#ecfdf5'};border:1px solid ${isOccupied ? '#cbd5e1' : '#a7f3d0'};font-size:0.82rem;font-weight:700;color:${isOccupied ? '#334155' : '#047857'};">
+                      <span>${name}</span>
+                      <span style="font-size:0.7rem;font-weight:600;padding:1px 5px;border-radius:4px;background:${isOccupied ? '#e2e8f0' : '#d1fae5'};color:${isOccupied ? '#475569' : '#065f46'};">Sec ${p.section || 'A'}</span>
+                      <span style="font-size:0.7rem;color:${p.status === 'Ready' ? '#16a34a' : p.status === 'Fermenting' ? '#d97706' : '#64748b'};">● ${p.status}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
         </div>
-        <p style="font-size:0.85rem;color:#7f1d1d;margin-bottom:14px;">
-          Signed in as: <strong>${store.currentProfile?.full_name || store.currentUser?.email || 'User'}</strong>
-          (${store.getRole()})
-        </p>
-        <button class="btn-danger" onclick="window.signOut()">Sign Out of BMS</button>
+
+        <!-- RIGHT COLUMN: Modes, Account & Danger Zone -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- Card 3: Rapid Fermentation Testing Mode -->
+          <div class="section-box" style="margin:0;border:1px solid rgba(234,88,12,0.3);background:#fffcf7;">
+            <div class="section-box-header" style="border-bottom:1px solid #fed7aa;display:flex;justify-content:space-between;align-items:center;">
+              <div class="box-title" style="color:#c2410c;display:flex;align-items:center;gap:8px;">
+                <span>⚡</span> <span>Fermentation Testing Speed</span>
+              </div>
+              <span style="font-size:0.78rem;font-weight:700;padding:3px 10px;border-radius:9999px;background:${settings.fermentationUnit === 'minute' ? '#ffedd5' : '#e0f2fe'};color:${settings.fermentationUnit === 'minute' ? '#c2410c' : '#0369a1'};border:1px solid ${settings.fermentationUnit === 'minute' ? '#fdba74' : '#bae6fd'};">
+                ${settings.fermentationUnit === 'minute' ? '⚡ 1-Minute Mode Active' : '📅 30-Day Mode Active'}
+              </span>
+            </div>
+            <p style="font-size:0.84rem;color:#7c2d12;margin:12px 0 14px 0;line-height:1.45;">
+              In 1-minute mode, newly created batches cure in 60 seconds with live countdowns for instant testing and demonstration.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button type="button" class="btn-primary" style="background:#ea580c;color:#fff;padding:8px 16px;font-size:0.84rem;font-weight:700;" onclick="window.enable1MinTestingMode()">
+                ⚡ Switch to 1-Minute Mode
+              </button>
+              <button type="button" class="btn-secondary" style="background:#fff;border:1px solid #d1d5db;color:#374151;padding:8px 16px;font-size:0.84rem;font-weight:700;" onclick="window.enable30DayMode()">
+                📅 Restore 30-Day Mode
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 4: Account & Session -->
+          <div class="section-box" style="margin:0;">
+            <div class="section-box-header">
+              <div class="box-title" style="display:flex;align-items:center;gap:8px;">
+                <span>👤</span> <span>Account & Current Session</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:12px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:42px;height:42px;border-radius:50%;background:#047857;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;box-shadow:0 2px 6px rgba(4,120,87,0.3);">
+                  ${(store.currentProfile?.full_name || store.currentUser?.email || 'U')[0].toUpperCase()}
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">${store.currentProfile?.full_name || store.currentUser?.email || 'Logged In User'}</div>
+                  <div style="font-size:0.78rem;color:#64748b;">Role: <strong style="color:#047857;">${store.getRole()}</strong> (Full Access)</div>
+                </div>
+              </div>
+              <button class="btn-secondary" style="border-color:#fca5a5;color:#b91c1c;background:#fff5f5;font-weight:700;padding:7px 16px;font-size:0.84rem;" onclick="window.signOut()">
+                Sign Out
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 5: Danger Zone (Selective Reset) -->
+          <div class="section-box" style="margin:0;border:1.5px solid #fca5a5;background:#fff8f8;">
+            <div class="section-box-header" style="border-bottom:1px solid #fee2e2;display:flex;justify-content:space-between;align-items:center;">
+              <div class="box-title" style="color:#b91c1c;display:flex;align-items:center;gap:8px;">
+                <span>⚠️</span> <span>System Data Management</span>
+              </div>
+              <span style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700;">Danger Zone</span>
+            </div>
+            <p style="font-size:0.83rem;color:#7f1d1d;margin:12px 0 14px 0;line-height:1.45;">
+              Selectively clear purchases, batches, invoices, expenses, yard plots, or perform a complete wipe.
+            </p>
+            <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#dc2626;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.25);" onclick="window.confirmResetEverything()">
+              💣 Reset System Data…
+            </button>
+          </div>
+
+        </div>
+
       </div>
     </div>
   `;
@@ -3342,7 +3425,7 @@ function renderSettings() {
     } catch(err) {
       showToast('Error: ' + err.message, 'error');
     }
-    btn.textContent = 'Save Settings'; btn.disabled = false;
+    btn.textContent = '💾 Save Changes'; btn.disabled = false;
   });
 
   document.getElementById('addPlotForm').addEventListener('submit', async (e) => {
@@ -3358,10 +3441,11 @@ function renderSettings() {
       msg.style.display = 'block';
       document.getElementById('new_plotId').value = '';
       showToast(`Plot ${plotId} added`);
+      renderSettings();
     } catch(err) {
       showToast('Error: ' + err.message, 'error');
     }
-    btn.textContent = '+ Create Plot'; btn.disabled = false;
+    btn.textContent = '＋ Add Plot'; btn.disabled = false;
   });
 }
 
