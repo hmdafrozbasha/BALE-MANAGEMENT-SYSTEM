@@ -802,61 +802,280 @@ export const expensesService = {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// ATTACHMENTS
+// ATTACHMENTS & LOCAL RECEIPT VAULT (IndexedDB + Supabase)
 // ─────────────────────────────────────────────────────────────────
+const IDB_NAME = 'bms_attachments_vault';
+const IDB_STORE = 'receipts';
+
+function openAttachmentDB() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') return resolve(null);
+    try {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+          store.createIndex('entity_type', 'entity_type', { unique: false });
+          store.createIndex('entity_id', 'entity_id', { unique: false });
+          store.createIndex('entity', ['entity_type', 'entity_id'], { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch(e) {
+      resolve(null);
+    }
+  });
+}
+
+async function idbSaveAttachment(att) {
+  const db = await openAttachmentDB();
+  if (!db) return att;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(att);
+      tx.oncomplete = () => resolve(att);
+      tx.onerror = () => resolve(att);
+    } catch(e) {
+      resolve(att);
+    }
+  });
+}
+
+async function idbGetAttachmentsForEntity(entityType, entityId) {
+  const db = await openAttachmentDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const index = store.index('entity');
+      const req = index.getAll([entityType, String(entityId)]);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch(e) {
+      resolve([]);
+    }
+  });
+}
+
+async function idbGetAttachmentsForType(entityType) {
+  const db = await openAttachmentDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const index = store.index('entity_type');
+      const req = index.getAll(entityType);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch(e) {
+      resolve([]);
+    }
+  });
+}
+
+async function idbGetAttachmentById(id) {
+  const db = await openAttachmentDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch(e) {
+      resolve(null);
+    }
+  });
+}
+
+async function idbDeleteAttachment(id) {
+  const db = await openAttachmentDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch(e) {
+      resolve(false);
+    }
+  });
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const attachmentsService = {
   async upload(file, entityType, entityId) {
     if (file.size > 5 * 1024 * 1024) throw new Error('File size exceeds 5MB limit');
 
-    const allowed = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+    const allowed = ['image/jpeg','image/jpg','image/png','image/webp','image/gif','application/pdf'];
     if (!allowed.includes(file.type)) throw new Error('File type not allowed. Use JPG, PNG, WebP, GIF, or PDF');
 
-    const ext = file.name.split('.').pop();
-    const path = `${entityType}/${entityId}/${Date.now()}.${ext}`;
+    const dataUrl = await fileToDataUrl(file);
+    const ext = file.name.split('.').pop() || 'png';
+    const cleanId = String(entityId || ('temp-' + Date.now()));
+    const path = `${entityType}/${cleanId}/${Date.now()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('bms-attachments')
-      .upload(path, file, { upsert: false });
-    if (uploadError) throw uploadError;
+    let remoteRecord = null;
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('bms-attachments')
+        .upload(path, file, { upsert: false });
 
-    const { data: att, error: dbError } = await supabase.from('attachments').insert({
+      if (!uploadError) {
+        const { data: att, error: dbError } = await supabase.from('attachments').insert({
+          entity_type: entityType,
+          entity_id: cleanId,
+          storage_path: path,
+          original_name: file.name,
+          mime_type: file.type,
+          file_size_bytes: file.size
+        }).select().single();
+
+        if (!dbError && att) {
+          remoteRecord = att;
+        }
+      }
+    } catch(e) {
+      console.warn('Backend storage upload unavailable, falling back to local vault:', e.message);
+    }
+
+    const finalRecord = {
+      id: remoteRecord?.id || ('att-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
       entity_type: entityType,
-      entity_id: entityId,
-      storage_path: path,
+      entity_id: cleanId,
+      storage_path: remoteRecord?.storage_path || path,
+      data_url: dataUrl,
       original_name: file.name,
       mime_type: file.type,
-      file_size_bytes: file.size
-    }).select().single();
-    if (dbError) {
-      await supabase.storage.from('bms-attachments').remove([path]);
-      throw dbError;
-    }
-    return att;
+      file_size_bytes: file.size,
+      created_at: remoteRecord?.created_at || new Date().toISOString()
+    };
+
+    await idbSaveAttachment(finalRecord);
+    return finalRecord;
   },
 
-  async getSignedUrl(storagePath) {
-    const { data, error } = await supabase.storage
-      .from('bms-attachments')
-      .createSignedUrl(storagePath, 300); // 5 min expiry
-    if (error) throw error;
-    return data.signedUrl;
+  async getSignedUrl(storagePath, attachmentId = null) {
+    if (!storagePath) return '';
+    if (storagePath.startsWith('data:') || storagePath.startsWith('blob:')) {
+      return storagePath;
+    }
+
+    // Try finding cached local data URL first
+    if (attachmentId) {
+      const local = await idbGetAttachmentById(attachmentId);
+      if (local?.data_url) return local.data_url;
+    }
+
+    // Try Supabase signed URL
+    try {
+      const { data, error } = await supabase.storage
+        .from('bms-attachments')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      if (!error && data?.signedUrl) return data.signedUrl;
+    } catch(e) {
+      console.warn('Could not get signed URL from backend:', e.message);
+    }
+
+    // Fallback: check IndexedDB by storage_path
+    const all = await idbGetAttachmentsForType('expense').concat(
+      await idbGetAttachmentsForType('sale'),
+      await idbGetAttachmentsForType('purchase')
+    );
+    const found = all.find(a => a.storage_path === storagePath);
+    return found?.data_url || '';
+  },
+
+  async getById(id) {
+    if (!id) return null;
+    const local = await idbGetAttachmentById(id);
+    if (local) return local;
+
+    try {
+      const { data } = await supabase.from('attachments').select('*').eq('id', id).single();
+      return data || null;
+    } catch(e) {
+      return null;
+    }
   },
 
   async getForEntity(entityType, entityId) {
-    const { data, error } = await supabase
-      .from('attachments')
-      .select('*')
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const cleanId = String(entityId);
+    let remoteList = [];
+    try {
+      const { data, error } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', entityType)
+        .eq('entity_id', cleanId)
+        .order('created_at', { ascending: false });
+      if (!error && data) remoteList = data;
+    } catch(e) {}
+
+    const localList = await idbGetAttachmentsForEntity(entityType, cleanId);
+
+    // Merge: indexedDB record contains data_url for instant image rendering
+    const map = new Map();
+    remoteList.forEach(r => map.set(r.id, r));
+    localList.forEach(l => {
+      if (map.has(l.id)) {
+        map.set(l.id, { ...map.get(l.id), data_url: l.data_url || map.get(l.id).data_url });
+      } else {
+        map.set(l.id, l);
+      }
+    });
+
+    return Array.from(map.values()).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  },
+
+  async getAllForType(entityType) {
+    let remoteList = [];
+    try {
+      const { data, error } = await supabase
+        .from('attachments')
+        .select('*')
+        .eq('entity_type', entityType)
+        .order('created_at', { ascending: false });
+      if (!error && data) remoteList = data;
+    } catch(e) {}
+
+    const localList = await idbGetAttachmentsForType(entityType);
+
+    const map = new Map();
+    remoteList.forEach(r => map.set(r.id, r));
+    localList.forEach(l => {
+      if (map.has(l.id)) {
+        map.set(l.id, { ...map.get(l.id), data_url: l.data_url || map.get(l.id).data_url });
+      } else {
+        map.set(l.id, l);
+      }
+    });
+
+    return Array.from(map.values()).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   },
 
   async delete(attachmentId, storagePath) {
-    await supabase.storage.from('bms-attachments').remove([storagePath]);
-    const { error } = await supabase.from('attachments').delete().eq('id', attachmentId);
-    if (error) throw error;
+    try {
+      if (storagePath && !storagePath.startsWith('data:')) {
+        await supabase.storage.from('bms-attachments').remove([storagePath]);
+      }
+      await supabase.from('attachments').delete().eq('id', attachmentId);
+    } catch(e) {}
+    await idbDeleteAttachment(attachmentId);
   }
 };
 

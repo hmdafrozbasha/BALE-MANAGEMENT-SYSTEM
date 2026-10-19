@@ -343,11 +343,11 @@ async function render() {
       break;
     case 'sales':
       pageTitle.textContent = 'Sales, Invoices & Customer Credit';
-      renderSales();
+      await renderSales();
       break;
     case 'expenses':
       pageTitle.textContent = 'Business Expenses';
-      renderExpenses();
+      await renderExpenses();
       break;
     case 'reports':
       pageTitle.textContent = 'Financial & Stock Reports';
@@ -1487,23 +1487,36 @@ window.viewPurchaseAttachments = async function(purchaseId) {
     console.warn('Could not load attachments:', e.message);
   }
   hideLoading();
-  modalTitle.textContent = 'Purchase Attachments';
+  modalTitle.textContent = 'Purchase Attachments & Bills';
   modalBody.innerHTML = `
     <div style="margin-bottom:16px;">
       ${attachments.length === 0 ? '<div style="text-align:center;color:var(--text-muted);padding:20px;">No attachments yet for this purchase.</div>' : ''}
-      ${attachments.map(att => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-light);border-radius:8px;margin-bottom:8px;">
-          <span style="font-size:1.4rem;">${att.mime_type==='application/pdf'?'📄':'🖼'}</span>
-          <div style="flex:1;overflow:hidden;">
-            <div style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${att.original_name}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">${Math.round(att.file_size_bytes/1024)} KB • ${store.formatDate(att.created_at)}</div>
-          </div>
-          <button class="btn-navy" style="padding:5px 10px;font-size:0.8rem;" onclick="window.viewAttachment('${att.storage_path}')">View</button>
-        </div>
-      `).join('')}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:10px;">
+        ${attachments.map(att => {
+          const isPdf = att.mime_type === 'application/pdf' || att.original_name?.endsWith('.pdf');
+          const previewUrl = att.data_url || (att.storage_path?.startsWith('data:') ? att.storage_path : '');
+          return `
+            <div class="receipt-card-item">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:40px;height:40px;border-radius:6px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  ${isPdf ? '<span style="font-size:1.4rem;">📄</span>' : (previewUrl ? `<img src="${previewUrl}" style="width:100%;height:100%;object-fit:cover;" alt="Attachment" />` : '<span style="font-size:1.4rem;">🖼️</span>')}
+                </div>
+                <div style="flex:1;overflow:hidden;">
+                  <div style="font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${att.original_name}">${att.original_name}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);">${Math.round(att.file_size_bytes/1024)} KB • ${store.formatDate(att.created_at)}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button type="button" class="btn-navy" style="flex:1;padding:4px 8px;font-size:0.75rem;" onclick="window.viewAttachmentById('${att.id}')">👁️ View</button>
+                ${store.canDelete() ? `<button type="button" class="btn-danger" style="padding:4px 8px;font-size:0.75rem;" onclick="window.deleteAttachmentById('${att.id}', '${att.storage_path}', 'purchase', '${purchaseId}')" title="Delete attachment">🗑️</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>
     <div style="border-top:1px solid var(--border-light);padding-top:14px;">
-      <div style="font-weight:600;font-size:0.85rem;margin-bottom:8px;">+ Upload More Files</div>
+      <div style="font-weight:600;font-size:0.85rem;margin-bottom:8px;">+ Upload More Files (Max 5MB each)</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <input type="file" id="purAttachFile" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" multiple style="flex:1;" />
         <button class="btn-primary" style="padding:7px 14px;font-size:0.85rem;" onclick="window.doPurchaseAttachUpload('${purchaseId}')">Upload</button>
@@ -1900,13 +1913,24 @@ window.openNewBatchModal = function() {
 // ─────────────────────────────────────────────────────────────────
 // SALES & INVOICES
 // ─────────────────────────────────────────────────────────────────
-function renderSales() {
+async function renderSales() {
   const isFinance = store.canViewFinancials();
   if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access sales invoices and customer credit records.</div>`; return; }
 
   const sales = store.data.sales;
   const customers = store.data.customers;
   const today = store.getCurrentDate();
+
+  let salesAtts = [];
+  try {
+    salesAtts = await attachmentsService.getAllForType('sale');
+  } catch(e) {}
+  const attMap = new Map();
+  salesAtts.forEach(a => {
+    const k = String(a.entity_id);
+    if (!attMap.has(k)) attMap.set(k, []);
+    attMap.get(k).push(a);
+  });
 
   appContent.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
@@ -1977,6 +2001,7 @@ function renderSales() {
               const pending = s.balance_pending || s.balancePending || 0;
               const dueDate = s.due_date || s.dueDate || '';
               const isOverdue = pending > 0 && dueDate && new Date(dueDate) < new Date(today);
+              const attList = attMap.get(String(s.id)) || [];
               // Compute status client-side — never show undefined
               let displayStatus = s.status;
               if (!displayStatus || displayStatus === 'undefined') {
@@ -2004,7 +2029,10 @@ function renderSales() {
                   <td>${store.formatDate(dueDate)}</td>
                   <td><span class="badge ${statusBadgeClass}">${displayStatus}</span></td>
                   <td>
-                    <button class="btn-navy" style="padding:5px 10px;font-size:0.8rem;" onclick="window.viewInvoiceDetail('${s.id}')">View / Pay</button>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <button class="btn-navy" style="padding:5px 10px;font-size:0.8rem;" onclick="window.viewInvoiceDetail('${s.id}')">View / Pay</button>
+                      ${attList.length > 0 ? `<button type="button" class="btn-receipt-badge" style="padding:3px 7px;font-size:0.72rem;" onclick="window.viewInvoiceDetail('${s.id}')" title="${attList.length} attached receipt(s)">📎 ${attList.length}</button>` : ''}
+                    </div>
                   </td>
                 </tr>
               `;
@@ -2024,8 +2052,15 @@ window.viewInvoiceDetail = async function(invoiceId) {
   } catch(e) {
     sale = store.data.sales.find(s => s.id === invoiceId);
   }
+  if (!sale) { hideLoading(); return; }
+
+  let attachments = [];
+  try {
+    attachments = await attachmentsService.getForEntity('sale', sale.id);
+  } catch(e) {
+    console.warn('Could not load sale attachments:', e);
+  }
   hideLoading();
-  if (!sale) return;
 
   const today = store.getCurrentDate();
   const dueDate = sale.due_date || sale.dueDate || '';
@@ -2107,6 +2142,45 @@ window.viewInvoiceDetail = async function(invoiceId) {
           `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No payments recorded yet</td></tr>'}
         </tbody>
       </table>
+    </div>
+
+    <div style="margin-bottom:20px;background:var(--grey-bg);padding:16px;border-radius:var(--radius-md);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h4 style="font-size:0.9rem;font-weight:700;color:var(--primary-navy);margin:0;display:flex;align-items:center;gap:6px;">
+          📎 Payment Proofs & Bank Counterfoils
+          <span class="badge ${attachments.length > 0 ? 'badge-ready' : 'badge-fermenting'}" style="font-size:0.75rem;">${attachments.length}</span>
+        </h4>
+        <button type="button" class="btn-secondary" style="padding:4px 10px;font-size:0.78rem;" onclick="window.attachSaleReceipt('${sale.id}')">＋ Attach New Receipt</button>
+      </div>
+      ${attachments.length === 0 ? `
+        <div style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:12px 0;">
+          No receipts attached yet. Click "+ Attach New Receipt" to upload bank slips or counterfoils.
+        </div>
+      ` : `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:10px;">
+          ${attachments.map(att => {
+            const isPdf = att.mime_type === 'application/pdf' || att.original_name?.endsWith('.pdf');
+            const previewUrl = att.data_url || (att.storage_path?.startsWith('data:') ? att.storage_path : '');
+            return `
+              <div class="receipt-card-item">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:38px;height:38px;border-radius:6px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    ${isPdf ? '<span style="font-size:1.4rem;">📄</span>' : (previewUrl ? `<img src="${previewUrl}" style="width:100%;height:100%;object-fit:cover;" alt="Receipt" />` : '<span style="font-size:1.4rem;">🖼️</span>')}
+                  </div>
+                  <div style="flex:1;overflow:hidden;">
+                    <div style="font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${att.original_name}">${att.original_name}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);">${Math.round(att.file_size_bytes/1024)} KB • ${store.formatDate(att.created_at)}</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                  <button type="button" class="btn-navy" style="flex:1;padding:4px 8px;font-size:0.75rem;" onclick="window.viewAttachmentById('${att.id}')">👁️ View</button>
+                  ${store.canDelete() ? `<button type="button" class="btn-danger" style="padding:4px 8px;font-size:0.75rem;" onclick="window.deleteAttachmentById('${att.id}', '${att.storage_path}', 'sale', '${sale.id}')" title="Delete Receipt">🗑️</button>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
     </div>
 
     <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -2671,12 +2745,23 @@ window.openCustomerDetail = function(customerId) {
 // ─────────────────────────────────────────────────────────────────
 // EXPENSES
 // ─────────────────────────────────────────────────────────────────
-function renderExpenses() {
+async function renderExpenses() {
   const isFinance = store.canViewFinancials();
   if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access operating expenses.</div>`; return; }
 
   const expenses = store.data.expenses;
   const totalAmt = expenses.reduce((s,e) => s + (Number(e.amount)||0), 0);
+
+  let expenseAtts = [];
+  try {
+    expenseAtts = await attachmentsService.getAllForType('expense');
+  } catch(e) {}
+  const attMap = new Map();
+  expenseAtts.forEach(a => {
+    const k = String(a.entity_id);
+    if (!attMap.has(k)) attMap.set(k, []);
+    attMap.get(k).push(a);
+  });
 
   appContent.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
@@ -2690,13 +2775,18 @@ function renderExpenses() {
           <thead>
             <tr>
               <th>Date</th><th>Paid To</th><th>Reason / Particulars</th><th>Category</th>
-              <th>Amount</th><th>Mode</th><th>Related Batch</th><th>Action</th>
+              <th>Amount</th><th>Mode</th><th>Related Batch</th><th>Receipt / Bill</th><th>Action</th>
             </tr>
           </thead>
           <tbody>
-            ${expenses.length===0 ? '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">No expenses recorded. Click "+ Add Expense" to start.</td></tr>' : ''}
+            ${expenses.length===0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">No expenses recorded. Click "+ Add Expense" to start.</td></tr>' : ''}
             ${expenses.map(exp => {
               const batchNum = exp.related_batch_number || exp.relatedBatch || '';
+              const attList = attMap.get(String(exp.id)) || [];
+              const hasReceipt = attList.length > 0;
+              const firstAtt = hasReceipt ? attList[0] : null;
+              const isImage = firstAtt && (firstAtt.mime_type?.startsWith('image/') || (!firstAtt.mime_type?.includes('pdf') && !firstAtt.original_name?.toLowerCase().endsWith('.pdf')));
+              const previewSrc = firstAtt ? (firstAtt.data_url || (firstAtt.storage_path?.startsWith('data:') ? firstAtt.storage_path : '')) : '';
               return `
                 <tr>
                   <td>${store.formatDate(exp.expense_date||exp.date)}</td>
@@ -2706,6 +2796,26 @@ function renderExpenses() {
                   <td><strong class="text-red">${store.formatINR(exp.amount)}</strong></td>
                   <td>${exp.payment_mode||exp.mode}</td>
                   <td>${batchNum ? `<strong style="color:var(--brand-blue);">${batchNum}</strong>` : '--'}</td>
+                  <td>
+                    ${hasReceipt ? `
+                      <div class="receipt-cell">
+                        <button type="button" class="btn-receipt-badge" onclick="window.viewAttachmentById('${firstAtt.id}')" title="Click to view full receipt / bill">
+                          📎 <span>View Bill${attList.length > 1 ? ` (${attList.length})` : ''}</span>
+                        </button>
+                        <div class="receipt-hover-card">
+                          ${isImage && previewSrc ? `<img src="${previewSrc}" alt="Bill thumbnail" class="receipt-hover-img" />` : `<div class="receipt-hover-pdf"><span style="font-size:1.4rem;">📄</span><span>PDF Document</span></div>`}
+                          <div class="receipt-hover-meta">
+                            <div class="receipt-hover-name" title="${firstAtt.original_name}">${firstAtt.original_name}</div>
+                            <div class="receipt-hover-sub">${Math.round(firstAtt.file_size_bytes/1024)} KB • Click to open</div>
+                          </div>
+                        </div>
+                      </div>
+                    ` : `
+                      <button type="button" class="btn-receipt-attach" onclick="window.openExpenseAttachmentModal('${exp.id}')" title="Attach bill photo or invoice">
+                        ＋ Attach
+                      </button>
+                    `}
+                  </td>
                   <td>
                     ${store.canDelete() ? `<button class="btn-danger" onclick="window.deleteExpense('${exp.id}')">Delete</button>` : '--'}
                   </td>
@@ -2718,6 +2828,50 @@ function renderExpenses() {
     </div>
   `;
 }
+
+window.openExpenseAttachmentModal = function(expenseId) {
+  const exp = store.data.expenses.find(e => String(e.id) === String(expenseId));
+  modalTitle.textContent = 'Attach Bill / Voucher';
+  modalBody.innerHTML = `
+    <div style="padding:10px;">
+      <div style="background:var(--grey-bg);padding:12px;border-radius:var(--radius-md);margin-bottom:14px;font-size:0.88rem;">
+        <div>Paid To: <strong>${exp?.paid_to || exp?.paidTo || ''}</strong></div>
+        <div style="margin-top:4px;">Amount: <strong class="text-red">${store.formatINR(exp?.amount || 0)}</strong> | Reason: <strong>${exp?.reason || ''}</strong></div>
+      </div>
+      <div class="attachment-box">
+        <div>
+          <div style="font-weight:600;font-size:0.85rem;">Upload Bill Photo, Invoice or Voucher</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">Supports JPG, PNG, WebP, PDF (Max 5MB)</div>
+        </div>
+        <div class="attachment-buttons">
+          <input type="file" id="expModalFile" class="form-input" accept="image/*,application/pdf" />
+        </div>
+      </div>
+      <div id="expModalProgress" style="display:none;margin-top:10px;font-size:0.85rem;color:var(--text-muted);">Uploading…</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+        <button class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button class="btn-primary" id="saveExpModalAttachBtn" onclick="window.doSaveExpenseAttachment('${expenseId}')">Save Attachment</button>
+      </div>
+    </div>
+  `;
+  openModal();
+};
+
+window.doSaveExpenseAttachment = async function(expenseId) {
+  const file = document.getElementById('expModalFile')?.files[0];
+  if (!file) { showToast('Please select a file', 'warning'); return; }
+  const btn = document.getElementById('saveExpModalAttachBtn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    await attachmentsService.upload(file, 'expense', expenseId);
+    closeModal();
+    await renderExpenses();
+    showToast('Bill attached successfully!');
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+    btn.textContent = 'Save Attachment'; btn.disabled = false;
+  }
+};
 
 window.openNewExpenseModal = function() {
   const batches = store.data.batches;
@@ -2816,12 +2970,16 @@ window.openNewExpenseModal = function() {
       });
 
       const fileInput = document.getElementById('exp_fileInput');
-      if (fileInput.files.length > 0 && expResult?.id) {
-        try { await attachmentsService.upload(fileInput.files[0], 'expense', expResult.id); } catch(e2) {}
+      if (fileInput && fileInput.files.length > 0 && expResult?.id) {
+        try {
+          await attachmentsService.upload(fileInput.files[0], 'expense', expResult.id);
+        } catch(e2) {
+          console.warn('Expense attachment upload error:', e2);
+        }
       }
 
       closeModal();
-      renderExpenses();
+      await renderExpenses();
       showToast('Expense saved successfully');
     } catch(err) {
       errDiv.textContent = err.message;
@@ -2836,7 +2994,7 @@ window.deleteExpense = async function(id) {
   if (!confirm('Are you sure you want to delete this expense record?')) return;
   try {
     await store.deleteRecord('expense', id);
-    renderExpenses();
+    await renderExpenses();
     showToast('Expense deleted');
   } catch(err) {
     showToast('Error: ' + err.message, 'error');
@@ -3158,17 +3316,138 @@ function renderSettings() {
 // ─────────────────────────────────────────────────────────────────
 // MISC
 // ─────────────────────────────────────────────────────────────────
-window.viewAttachment = async function(storagePath) {
+// ─────────────────────────────────────────────────────────────────
+// ATTACHMENT LIGHTBOX & VIEWER
+// ─────────────────────────────────────────────────────────────────
+window.openAttachmentLightbox = function({ url, name, mime, size, id }) {
+  document.getElementById('bmsAttachmentLightbox')?.remove();
+
+  const isPdf = mime === 'application/pdf' || name?.toLowerCase().endsWith('.pdf');
+  const sizeFormatted = size ? `${Math.round(size / 1024)} KB` : '';
+
+  const el = document.createElement('div');
+  el.id = 'bmsAttachmentLightbox';
+  el.className = 'attachment-lightbox-overlay';
+  el.innerHTML = `
+    <div class="attachment-lightbox-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:1.6rem;">${isPdf ? '📄' : '🖼️'}</span>
+        <div>
+          <div style="font-weight:700;font-size:1.05rem;color:#ffffff;line-height:1.2;">${name || 'Receipt Document'}</div>
+          <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);margin-top:2px;">
+            ${isPdf ? 'PDF Document' : 'Image Receipt'} ${sizeFormatted ? '• ' + sizeFormatted : ''}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="${url}" download="${name || 'receipt'}" class="btn-primary" style="padding:6px 14px;font-size:0.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
+          ⬇ Download
+        </a>
+        <a href="${url}" target="_blank" rel="noopener" class="btn-secondary" style="padding:6px 12px;font-size:0.82rem;text-decoration:none;background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.3);">
+          ↗ Open in Tab
+        </a>
+        <button type="button" class="modal-close-btn" style="color:#fff;background:rgba(255,255,255,0.18);" onclick="document.getElementById('bmsAttachmentLightbox').remove()">
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="attachment-lightbox-body" onclick="if(event.target===this) document.getElementById('bmsAttachmentLightbox').remove()">
+      ${isPdf
+        ? `<iframe src="${url}" class="attachment-lightbox-iframe" title="${name}"></iframe>`
+        : `<img src="${url}" alt="${name}" class="attachment-lightbox-img" />`
+      }
+    </div>
+  `;
+  document.body.appendChild(el);
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      el.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+};
+
+window.viewAttachmentById = async function(attachmentId) {
+  showLoading('Opening receipt…');
   try {
-    const url = await attachmentsService.getSignedUrl(storagePath);
-    window.open(url, '_blank');
+    const att = await attachmentsService.getById(attachmentId);
+    hideLoading();
+    if (!att) {
+      showToast('Attachment not found', 'warning');
+      return;
+    }
+    const url = att.data_url || (att.storage_path?.startsWith('data:') ? att.storage_path : await attachmentsService.getSignedUrl(att.storage_path, att.id));
+    if (!url) {
+      showToast('Could not load attachment URL', 'error');
+      return;
+    }
+    window.openAttachmentLightbox({
+      url: url,
+      name: att.original_name || 'Receipt Document',
+      mime: att.mime_type || 'image/jpeg',
+      size: att.file_size_bytes || 0,
+      id: att.id
+    });
   } catch(e) {
+    hideLoading();
+    showToast('Error opening attachment: ' + e.message, 'error');
+  }
+};
+
+window.viewAttachment = async function(storagePath, attachmentId = null) {
+  showLoading('Opening attachment…');
+  try {
+    let att = null;
+    if (attachmentId) {
+      att = await attachmentsService.getById(attachmentId);
+    }
+    const url = (att?.data_url || att?.storage_path?.startsWith('data:'))
+      ? (att.data_url || att.storage_path)
+      : await attachmentsService.getSignedUrl(storagePath, attachmentId);
+
+    hideLoading();
+    if (!url) {
+      showToast('Could not load attachment URL', 'error');
+      return;
+    }
+
+    const isImage = (att?.mime_type && att.mime_type.startsWith('image/')) || (url.startsWith('data:image')) || (storagePath && storagePath.match(/\.(jpg|jpeg|png|webp|gif)/i));
+
+    window.openAttachmentLightbox({
+      url: url,
+      name: att?.original_name || 'Receipt Document',
+      mime: att?.mime_type || (isImage ? 'image/jpeg' : 'application/pdf'),
+      size: att?.file_size_bytes || 0,
+      id: att?.id || attachmentId
+    });
+  } catch(e) {
+    hideLoading();
     showToast('Error loading attachment: ' + e.message, 'error');
   }
 };
 
+window.deleteAttachmentById = async function(attId, storagePath, entityType, entityId) {
+  if (!confirm('Are you sure you want to permanently delete this attached receipt?')) return;
+  try {
+    await attachmentsService.delete(attId, storagePath);
+    showToast('Receipt deleted successfully');
+    if (entityType === 'sale') {
+      await window.viewInvoiceDetail(entityId);
+      await renderSales();
+    } else if (entityType === 'expense') {
+      await renderExpenses();
+    } else if (entityType === 'purchase') {
+      await window.viewPurchaseAttachments(entityId);
+    }
+  } catch(e) {
+    showToast('Error deleting attachment: ' + e.message, 'error');
+  }
+};
+
 window.attachSaleReceipt = function(saleId) {
-  modalTitle.textContent = `Attach Payment Receipt`;
+  modalTitle.textContent = 'Attach Payment Receipt';
   modalBody.innerHTML = `
     <div style="padding:10px;">
       <div class="attachment-box">
@@ -3197,8 +3476,10 @@ window.doUploadReceipt = async function(saleId) {
   btn.textContent = 'Uploading…'; btn.disabled = true;
   try {
     await attachmentsService.upload(file, 'sale', saleId);
-    closeModal();
     showToast('Receipt uploaded successfully!');
+    // Re-open invoice detail immediately so user sees their new receipt right away!
+    await window.viewInvoiceDetail(saleId);
+    await renderSales();
   } catch(err) {
     showToast('Upload error: ' + err.message, 'error');
     btn.textContent = 'Save Receipt'; btn.disabled = false;
