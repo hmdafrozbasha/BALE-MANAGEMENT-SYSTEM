@@ -363,12 +363,160 @@ export const plotsService = {
     });
   },
 
-  async updateStock(plotId, balesRemaining, status) {
+  async updateStock(plotIdOrName, balesRemaining, status) {
+    let resolvedPlotId = plotIdOrName;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plotIdOrName);
+    if (!isUUID) {
+      try {
+        const { data: pData } = await supabase.from('plots').select('id, plot_name').eq('plot_name', plotIdOrName).single();
+        if (pData?.id) resolvedPlotId = pData.id;
+      } catch(e) {}
+    }
+
+    const numBales = Math.max(0, Number(balesRemaining));
+    const effectiveStatus = (numBales === 0 || status === 'Empty') ? 'Empty' : status;
+    const nowIso = new Date().toISOString();
+
+    const updatePayload = {
+      bales_remaining: numBales,
+      status: effectiveStatus,
+      updated_at: nowIso
+    };
+
+    if (effectiveStatus === 'Empty') {
+      updatePayload.batch_id = null;
+      updatePayload.ferm_start = null;
+      updatePayload.ready_date = null;
+      updatePayload.cost_per_bale = 0;
+    }
+
     const { error } = await supabase
       .from('plot_inventory')
-      .update({ bales_remaining: balesRemaining, status, updated_at: new Date().toISOString() })
-      .eq('plot_id', plotId);
+      .update(updatePayload)
+      .eq('plot_id', resolvedPlotId);
     if (error) throw error;
+
+    // If emptied, ensure associated batch in production_batches doesn't keep reviving this plot
+    if (effectiveStatus === 'Empty') {
+      try {
+        await supabase
+          .from('production_batches')
+          .update({ status: 'Dispatched', updated_at: nowIso })
+          .eq('plot_id', resolvedPlotId)
+          .in('status', ['Ready', 'Fermenting']);
+      } catch(e) {
+        console.warn('Could not update production_batches status on empty:', e.message);
+      }
+    }
+  },
+
+  async moveStock(fromPlotIdOrName, toPlotIdOrName, balesToMove) {
+    const numBales = Number(balesToMove);
+    if (!numBales || numBales <= 0) throw new Error('Please enter a valid bale count to move');
+
+    // Resolve source plot UUID
+    let sourcePlotId = fromPlotIdOrName;
+    const isSourceUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fromPlotIdOrName);
+    if (!isSourceUUID) {
+      const { data: pData } = await supabase.from('plots').select('id, plot_name').eq('plot_name', fromPlotIdOrName).single();
+      if (pData?.id) sourcePlotId = pData.id;
+    }
+
+    // Resolve target plot UUID
+    let targetPlotId = toPlotIdOrName;
+    const isTargetUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toPlotIdOrName);
+    if (!isTargetUUID) {
+      const { data: pData } = await supabase.from('plots').select('id, plot_name').eq('plot_name', toPlotIdOrName).single();
+      if (pData?.id) targetPlotId = pData.id;
+    }
+
+    if (sourcePlotId === targetPlotId) throw new Error('Source and destination plots must be different');
+
+    // Get source inventory
+    const { data: sourceInv, error: sErr } = await supabase
+      .from('plot_inventory')
+      .select('*')
+      .eq('plot_id', sourcePlotId)
+      .single();
+    if (sErr || !sourceInv) throw new Error('Source plot inventory not found');
+
+    if ((sourceInv.bales_remaining || 0) < numBales) {
+      throw new Error(`Insufficient bales in source plot. Available: ${sourceInv.bales_remaining || 0}`);
+    }
+
+    // Get target inventory
+    const { data: targetInv, error: tErr } = await supabase
+      .from('plot_inventory')
+      .select('*')
+      .eq('plot_id', targetPlotId)
+      .single();
+    if (tErr || !targetInv) throw new Error('Target plot inventory not found');
+
+    const nowIso = new Date().toISOString();
+    const sourceRemaining = (sourceInv.bales_remaining || 0) - numBales;
+    const targetNewBales = (targetInv.bales_remaining || 0) + numBales;
+
+    // Source update
+    const sourcePayload = {
+      bales_remaining: sourceRemaining,
+      status: sourceRemaining <= 0 ? 'Empty' : sourceInv.status,
+      updated_at: nowIso
+    };
+    if (sourceRemaining <= 0) {
+      sourcePayload.batch_id = null;
+      sourcePayload.ferm_start = null;
+      sourcePayload.ready_date = null;
+      sourcePayload.cost_per_bale = 0;
+    }
+
+    // Target update
+    const targetPayload = {
+      bales_remaining: targetNewBales,
+      status: sourceInv.status || 'Ready',
+      batch_id: sourceInv.batch_id || targetInv.batch_id,
+      cost_per_bale: sourceInv.cost_per_bale || targetInv.cost_per_bale || 0,
+      ferm_start: sourceInv.ferm_start || targetInv.ferm_start,
+      ready_date: sourceInv.ready_date || targetInv.ready_date,
+      updated_at: nowIso
+    };
+
+    const { error: sUpErr } = await supabase.from('plot_inventory').update(sourcePayload).eq('plot_id', sourcePlotId);
+    if (sUpErr) throw sUpErr;
+
+    const { error: tUpErr } = await supabase.from('plot_inventory').update(targetPayload).eq('plot_id', targetPlotId);
+    if (tUpErr) throw tUpErr;
+
+    // Log inventory movements
+    try {
+      await supabase.from('inventory_movements').insert([
+        {
+          movement_type: 'adjustment',
+          plot_id: sourcePlotId,
+          batch_id: sourceInv.batch_id,
+          bales_delta: -numBales,
+          notes: `Moved ${numBales} bales to plot ${toPlotIdOrName}`
+        },
+        {
+          movement_type: 'adjustment',
+          plot_id: targetPlotId,
+          batch_id: sourceInv.batch_id,
+          bales_delta: numBales,
+          notes: `Received ${numBales} bales from plot ${fromPlotIdOrName}`
+        }
+      ]);
+    } catch(e) { /* ignore movement log */ }
+
+    // If source plot is emptied and was linked to a production batch, update batch
+    if (sourceRemaining <= 0 && sourceInv.batch_id) {
+      try {
+        await supabase
+          .from('production_batches')
+          .update({ plot_id: targetPlotId, plot_assigned: toPlotIdOrName, updated_at: nowIso })
+          .eq('id', sourceInv.batch_id);
+      } catch(e) {}
+    }
+
+    return { success: true, sourceRemaining, targetNewBales };
   },
 
   async markReady(plotIdOrName, batchIdOrNumber) {

@@ -790,40 +790,172 @@ window.openMoveStockModal = function(plotName) {
   const plot = store.data.plots.find(p => p.plot_name === plotName || p.id === plotName);
   if (!plot) return;
 
-  modalTitle.textContent = `Update Stock - Plot ${plot.plot_name || plot.id}`;
+  const otherPlots = store.data.plots.filter(p => (p.plot_name !== plot.plot_name && p.id !== plot.id));
+  const hasStockToMove = (plot.bales || 0) > 0;
+
+  modalTitle.textContent = `Move / Update Stock • Plot ${plot.plot_name || plot.id}`;
   modalBody.innerHTML = `
-    <form id="moveStockForm">
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border-light);padding-bottom:12px;">
+      <button type="button" id="tabUpdateStockBtn" class="btn-primary" style="flex:1;padding:8px 12px;font-size:0.85rem;">✏️ Update Stock & Status</button>
+      <button type="button" id="tabMoveStockBtn" class="btn-secondary" style="flex:1;padding:8px 12px;font-size:0.85rem;" ${!hasStockToMove?'disabled title="No stock available to move"':''}>📦 Move to Another Plot</button>
+    </div>
+
+    <!-- Panel 1: Update Stock & Status -->
+    <form id="updateStockForm" style="display:block;">
       <div class="form-group mb-12">
         <label class="form-label">Updated Bale Count</label>
-        <input type="number" id="updateBalesInput" class="form-input" value="${plot.bales}" min="0" required />
+        <input type="number" id="updateBalesInput" class="form-input" value="${plot.bales || 0}" min="0" required />
+        <small style="color:var(--text-muted);font-size:0.75rem;">Setting count to 0 will mark this plot as Empty.</small>
       </div>
       <div class="form-group mb-16">
         <label class="form-label">Plot Status</label>
         <select id="updateStatusSelect" class="form-select">
           <option value="Ready" ${plot.status==='Ready'?'selected':''}>Ready for Sale</option>
           <option value="Fermenting" ${plot.status==='Fermenting'?'selected':''}>Fermenting</option>
-          <option value="Empty" ${plot.status==='Empty'?'selected':''}>Empty</option>
+          <option value="Empty" ${plot.status==='Empty' || !plot.bales?'selected':''}>Empty</option>
         </select>
       </div>
+      <div id="updateStockErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:8px;font-size:0.82rem;margin-bottom:12px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:10px;">
         <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
         <button type="submit" class="btn-primary" id="saveStockBtn">Save Changes</button>
       </div>
     </form>
+
+    <!-- Panel 2: Move Stock to Another Plot -->
+    <form id="moveStockForm" style="display:none;">
+      <div style="background:#f0fdf4;border:1px solid var(--green-border);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div style="font-size:0.82rem;color:var(--text-muted);">Current Plot</div>
+        <div style="font-weight:700;color:var(--primary-navy);font-size:1.05rem;">
+          Plot ${plot.plot_name} — <span style="color:var(--green-text);">${store.formatNumber(plot.bales)} bales available</span> (${plot.status})
+        </div>
+      </div>
+
+      <div class="form-group mb-12">
+        <label class="form-label">Destination Plot <span style="color:var(--red-accent);">*</span></label>
+        <select id="moveDestPlot" class="form-select" required>
+          <option value="">-- Select Destination Plot --</option>
+          ${otherPlots.map(op => {
+            const isEmp = op.status === 'Empty' || !op.bales;
+            return `<option value="${op.plot_name || op.id}">Plot ${op.plot_name} (${isEmp ? 'Empty' : `${op.bales} bales, ${op.status}`})</option>`;
+          }).join('')}
+        </select>
+      </div>
+
+      <div class="form-group mb-16">
+        <label class="form-label">Bales to Transfer</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" id="moveBalesInput" class="form-input" value="${plot.bales || 0}" min="1" max="${plot.bales || 0}" required style="flex:1;" />
+          <button type="button" class="btn-secondary" id="moveAllBtn" style="white-space:nowrap;padding:6px 12px;font-size:0.8rem;">All (${plot.bales})</button>
+        </div>
+      </div>
+
+      <div id="moveStockErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:8px;font-size:0.82rem;margin-bottom:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="submit" class="btn-primary" id="executeMoveBtn">📦 Transfer Stock</button>
+      </div>
+    </form>
   `;
 
-  document.getElementById('moveStockForm').addEventListener('submit', async (e) => {
+  const tabUpdateBtn = document.getElementById('tabUpdateStockBtn');
+  const tabMoveBtn = document.getElementById('tabMoveStockBtn');
+  const updateForm = document.getElementById('updateStockForm');
+  const moveForm = document.getElementById('moveStockForm');
+  const updateBalesInput = document.getElementById('updateBalesInput');
+  const updateStatusSelect = document.getElementById('updateStatusSelect');
+
+  // Auto-sync bale count 0 <-> status Empty
+  updateBalesInput?.addEventListener('input', (e) => {
+    const val = Number(e.target.value) || 0;
+    if (val === 0 && updateStatusSelect) updateStatusSelect.value = 'Empty';
+    else if (val > 0 && updateStatusSelect && updateStatusSelect.value === 'Empty') {
+      updateStatusSelect.value = 'Ready';
+    }
+  });
+  updateStatusSelect?.addEventListener('change', (e) => {
+    if (e.target.value === 'Empty' && updateBalesInput) {
+      updateBalesInput.value = 0;
+    }
+  });
+
+  // Switch tabs
+  const showTab = (tab) => {
+    if (tab === 'update') {
+      tabUpdateBtn.className = 'btn-primary';
+      tabMoveBtn.className = 'btn-secondary';
+      updateForm.style.display = 'block';
+      moveForm.style.display = 'none';
+    } else {
+      tabMoveBtn.className = 'btn-primary';
+      tabUpdateBtn.className = 'btn-secondary';
+      updateForm.style.display = 'none';
+      moveForm.style.display = 'block';
+    }
+  };
+  tabUpdateBtn?.addEventListener('click', () => showTab('update'));
+  tabMoveBtn?.addEventListener('click', () => showTab('move'));
+
+  document.getElementById('moveAllBtn')?.addEventListener('click', () => {
+    const mbInput = document.getElementById('moveBalesInput');
+    if (mbInput) mbInput.value = plot.bales || 0;
+  });
+
+  // Handle Update Stock Submission
+  updateForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('saveStockBtn');
+    const errDiv = document.getElementById('updateStockErr');
     btn.textContent = 'Saving…'; btn.disabled = true;
+    if (errDiv) errDiv.style.display = 'none';
     try {
-      await store.updatePlotStock(plot.id || plot.plot_name, document.getElementById('updateBalesInput').value, document.getElementById('updateStatusSelect').value);
+      const bCount = Number(updateBalesInput.value) || 0;
+      const bStatus = updateStatusSelect.value;
+      await store.updatePlotStock(plot.plot_name || plot.id, bCount, bStatus);
+      dashboardMetrics = null;
       closeModal();
       renderPlots();
-      showToast('Stock updated successfully');
+      showToast(`Plot ${plot.plot_name} updated successfully!`);
     } catch(err) {
-      showToast('Error: ' + err.message, 'error');
+      if (errDiv) {
+        errDiv.textContent = err.message || 'Error updating stock.';
+        errDiv.style.display = 'block';
+      }
       btn.textContent = 'Save Changes'; btn.disabled = false;
+    }
+  });
+
+  // Handle Move Stock Submission
+  moveForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('executeMoveBtn');
+    const errDiv = document.getElementById('moveStockErr');
+    const destPlot = document.getElementById('moveDestPlot')?.value;
+    const bToMove = Number(document.getElementById('moveBalesInput')?.value) || 0;
+
+    if (!destPlot) {
+      if (errDiv) { errDiv.textContent = 'Please select a destination plot.'; errDiv.style.display = 'block'; }
+      return;
+    }
+    if (bToMove <= 0 || bToMove > (plot.bales || 0)) {
+      if (errDiv) { errDiv.textContent = `Please enter a valid count between 1 and ${plot.bales}.`; errDiv.style.display = 'block'; }
+      return;
+    }
+
+    btn.textContent = 'Transferring…'; btn.disabled = true;
+    if (errDiv) errDiv.style.display = 'none';
+    try {
+      await store.movePlotStock(plot.plot_name || plot.id, destPlot, bToMove);
+      dashboardMetrics = null;
+      closeModal();
+      renderPlots();
+      showToast(`Moved ${bToMove} bales from Plot ${plot.plot_name} to Plot ${destPlot}!`);
+    } catch(err) {
+      if (errDiv) {
+        errDiv.textContent = err.message || 'Error transferring stock.';
+        errDiv.style.display = 'block';
+      }
+      btn.textContent = '📦 Transfer Stock'; btn.disabled = false;
     }
   });
 };

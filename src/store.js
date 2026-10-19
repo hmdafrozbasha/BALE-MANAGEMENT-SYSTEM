@@ -175,7 +175,7 @@ class Store {
       this.data.plots = plots || [];
       this.data.batches = batches || [];
 
-      // Reconcile plots with active batches
+      // Reconcile plots with active batches: only enrich metadata for plots that are NOT empty
       if (this.data.plots && this.data.batches) {
         this.data.batches.forEach(b => {
           const bStatus = b.status || 'Fermenting';
@@ -183,17 +183,17 @@ class Store {
             const plotName = b.plot_name || b.plotAssigned || b.plots?.plot_name;
             const p = this.data.plots.find(pt => (pt.plot_name === plotName || pt.id === b.plot_id || pt.id === plotName));
             if (p) {
-              if (p.status === 'Empty' || !p.bales) {
-                p.bales = Number(b.finished_bales || b.finishedBales) || 0;
-                p.status = bStatus;
-                p.batchNumber = b.batch_number || b.batchNumber || '';
-                p.batchId = b.id;
-                p.fermStart = b.fermentation_start || b.fermentationStart || null;
-                p.readyDate = b.ready_date || b.readyDate || null;
-                p.costPerBale = Number(b.cost_per_bale || b.costPerBale) || 0;
-                p.prodDate = b.production_date || b.productionDate || null;
-              } else if (bStatus === 'Ready' && p.status === 'Fermenting') {
-                p.status = 'Ready';
+              // NEVER overwrite an explicitly emptied plot!
+              if (p.status !== 'Empty' && p.bales > 0) {
+                p.batchNumber = p.batchNumber || b.batch_number || b.batchNumber || '';
+                p.batchId = p.batchId || b.id;
+                p.fermStart = p.fermStart || b.fermentation_start || b.fermentationStart || null;
+                p.readyDate = p.readyDate || b.ready_date || b.readyDate || null;
+                p.costPerBale = p.costPerBale || Number(b.cost_per_bale || b.costPerBale) || 0;
+                p.prodDate = p.prodDate || b.production_date || b.productionDate || null;
+                if (bStatus === 'Ready' && p.status === 'Fermenting') {
+                  p.status = 'Ready';
+                }
               }
             }
           }
@@ -892,15 +892,50 @@ class Store {
     const plot = this.data.plots.find(p => p.id === plotId || p.plot_name === plotId);
     if (!plot) return;
     const finalBales = Math.max(0, Number(newBales));
-    const finalStatus = newStatus || (finalBales === 0 ? 'Empty' : plot.status);
+    const finalStatus = (finalBales === 0 || newStatus === 'Empty') ? 'Empty' : (newStatus || plot.status);
+
+    plot.bales = finalBales;
+    plot.status = finalStatus;
+    if (finalStatus === 'Empty') {
+      plot.batchNumber = '';
+      plot.batchId = null;
+    }
+    this.notify();
 
     try {
-      await plotsService.updateStock(plot.id, finalBales, finalStatus);
+      await plotsService.updateStock(plot.id || plot.plot_name, finalBales, finalStatus);
       await this.loadAll();
     } catch(err) {
       console.warn('Backend updateStock error, falling back locally:', err.message);
-      plot.bales = finalBales;
-      plot.status = finalStatus;
+      this.notify();
+    }
+  }
+
+  async movePlotStock(fromPlotId, toPlotId, balesToMove) {
+    const numBales = Number(balesToMove);
+    const source = this.data.plots.find(p => p.id === fromPlotId || p.plot_name === fromPlotId);
+    const target = this.data.plots.find(p => p.id === toPlotId || p.plot_name === toPlotId);
+    if (!source || !target) throw new Error('Invalid source or target plot');
+    if ((source.bales || 0) < numBales) throw new Error(`Only ${source.bales || 0} bales available in source plot`);
+
+    source.bales = Math.max(0, (source.bales || 0) - numBales);
+    if (source.bales === 0) {
+      source.status = 'Empty';
+      source.batchNumber = '';
+      source.batchId = null;
+    }
+    target.bales = (target.bales || 0) + numBales;
+    target.status = source.status === 'Empty' ? 'Ready' : source.status;
+    target.batchNumber = source.batchNumber || target.batchNumber;
+    target.batchId = source.batchId || target.batchId;
+    target.costPerBale = source.costPerBale || target.costPerBale;
+    this.notify();
+
+    try {
+      await plotsService.moveStock(source.id || source.plot_name, target.id || target.plot_name, numBales);
+      await this.loadAll();
+    } catch(err) {
+      console.warn('Backend moveStock failed, local state applied:', err.message);
       this.notify();
     }
   }
