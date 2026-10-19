@@ -254,7 +254,27 @@ class Store {
       if (snap.suppliers) this.data.suppliers = snap.suppliers;
       if (snap.customers) this.data.customers = snap.customers;
       if (snap.purchases) this.data.purchases = snap.purchases;
-      if (snap.sales) this.data.sales = snap.sales;
+      if (snap.sales) {
+        this.data.sales = (snap.sales || []).map(s => {
+          const items = s.sale_line_items || s.stockAllocations || [];
+          const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
+          const bales = Number(s.bales_count ?? s.balesCount ?? lineBales) || lineBales || 0;
+          let rate = Number(s.rate_per_bale ?? s.ratePerBale) || 0;
+          if (!rate && items.length > 0) {
+            rate = Number(items[0].rate_per_bale || items[0].ratePerBale || items[0].price) || 0;
+          }
+          if (!rate && bales > 0 && (s.subtotal || s.invoice_total)) {
+            rate = Math.round(Number(s.subtotal || s.invoice_total) / bales);
+          }
+          return {
+            ...s,
+            bales_count: bales,
+            balesCount: bales,
+            rate_per_bale: rate,
+            ratePerBale: rate
+          };
+        });
+      }
       if (snap.expenses) this.data.expenses = snap.expenses;
       if (snap.settings) {
         this.data.settings.fermentationDays = snap.settings.fermentationDays || 30;
@@ -511,7 +531,11 @@ class Store {
       const totalConsumedKg = (this.data.batches || []).reduce((sum, b) => sum + (Number(b.raw_material_kg || b.rawMaterialKg) || 0), 0);
       realRawKg = Math.max(0, totalPurchasedKg - totalConsumedKg);
     }
-    const monthSoldBales = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.balesCount||r.bales_count)||0), 0);
+    const monthSoldBales = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => {
+      const items = r.sale_line_items || r.stockAllocations || [];
+      const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
+      return s + (Number(r.balesCount ?? r.bales_count ?? lineBales) || lineBales || 0);
+    }, 0);
 
     const batchesReadySoon = this.data.plots
       .filter(p => p.status === 'Fermenting' && (p.bales || 0) > 0 && p.fermStart)
@@ -945,7 +969,9 @@ class Store {
         customerName: cust?.name || 'Customer',
         date: saleData.date || this.getCurrentDate(),
         dueDate: saleData.dueDate || this.addDays(this.getCurrentDate(), 15),
+        bales_count: balesCount,
         balesCount: balesCount,
+        rate_per_bale: rate,
         ratePerBale: rate,
         subtotal: subtotal,
         gstRate: gstRate,
@@ -955,7 +981,8 @@ class Store {
         amountPaid: paid,
         balancePending: balance,
         status: balance <= 0 ? 'Paid' : (paid > 0 ? 'Partially Paid' : 'Pending'),
-        paymentMode: saleData.paymentMode || 'Cash'
+        paymentMode: saleData.paymentMode || 'Cash',
+        sale_line_items: lineItems
       };
       this.data.sales.unshift(newSale);
       this.notify();

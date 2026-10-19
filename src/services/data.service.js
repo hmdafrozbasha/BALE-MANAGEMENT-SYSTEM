@@ -531,14 +531,49 @@ export const customersService = {
 // ─────────────────────────────────────────────────────────────────
 // SALES
 // ─────────────────────────────────────────────────────────────────
+// Helper to enrich sale records with bales_count and rate_per_bale from line items
+function enrichSaleRecord(s) {
+  if (!s) return s;
+  const items = s.sale_line_items || s.stockAllocations || [];
+  const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
+  const bales = Number(s.bales_count ?? s.balesCount ?? lineBales) || lineBales || 0;
+
+  let rate = Number(s.rate_per_bale ?? s.ratePerBale) || 0;
+  if (!rate && items.length > 0) {
+    rate = Number(items[0].rate_per_bale || items[0].ratePerBale || items[0].price) || 0;
+  }
+  if (!rate && bales > 0 && (s.subtotal || s.invoice_total)) {
+    rate = Math.round(Number(s.subtotal || s.invoice_total) / bales);
+  }
+
+  return {
+    ...s,
+    bales_count: bales,
+    balesCount: bales,
+    rate_per_bale: rate,
+    ratePerBale: rate
+  };
+}
+
 export const salesService = {
   async getAll() {
-    const { data, error } = await supabase
-      .from('sales')
-      .select('*, customers(name, phone, credit_limit)')
-      .order('invoice_date', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    let salesData = [];
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*, customers(name, phone, credit_limit), sale_line_items(*)')
+        .order('invoice_date', { ascending: false });
+      if (error) throw error;
+      salesData = data || [];
+    } catch (err) {
+      console.warn('getAll sales with items failed, trying fallback:', err.message);
+      const { data: fbData } = await supabase
+        .from('sales')
+        .select('*, customers(name, phone, credit_limit)')
+        .order('invoice_date', { ascending: false });
+      salesData = fbData || [];
+    }
+    return salesData.map(enrichSaleRecord);
   },
 
   async getById(id) {
@@ -553,7 +588,7 @@ export const salesService = {
       .eq('id', id)
       .single();
     if (error) throw error;
-    return data;
+    return enrichSaleRecord(data);
   },
 
   async saveSale(saleData) {

@@ -1830,8 +1830,16 @@ function renderSales() {
             ${sales.map(s => {
               const invNum = s.invoice_number || s.invoiceNumber || '';
               const custName = s.customers?.name || s.customerName || '';
-              const bales = s.bales_count || s.balesCount || 0;
-              const rate = s.rate_per_bale || s.ratePerBale || 0;
+              const items = s.sale_line_items || s.stockAllocations || [];
+              const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
+              const bales = Number(s.bales_count ?? s.balesCount ?? lineBales) || lineBales || 0;
+              let rate = Number(s.rate_per_bale ?? s.ratePerBale) || 0;
+              if (!rate && items.length > 0) {
+                rate = Number(items[0].rate_per_bale || items[0].ratePerBale || items[0].price) || 0;
+              }
+              if (!rate && bales > 0 && (s.subtotal || s.invoice_total)) {
+                rate = Math.round(Number(s.subtotal || s.invoice_total) / bales);
+              }
               const total = s.invoice_total || s.invoiceTotal || 0;
               const paid = s.amount_paid || s.amountPaid || 0;
               const pending = s.balance_pending || s.balancePending || 0;
@@ -1892,6 +1900,15 @@ window.viewInvoiceDetail = async function(invoiceId) {
   const pending = sale.balance_pending || sale.balancePending || 0;
   const isOverdue = pending > 0 && dueDate && new Date(dueDate) < new Date(today);
   const lineItems = sale.sale_line_items || sale.stockAllocations || [];
+  const lineBales = lineItems.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
+  const totalBales = Number(sale.bales_count ?? sale.balesCount ?? lineBales) || lineBales || 0;
+  let effRate = Number(sale.rate_per_bale ?? sale.ratePerBale) || 0;
+  if (!effRate && lineItems.length > 0) {
+    effRate = Number(lineItems[0].rate_per_bale || lineItems[0].ratePerBale || lineItems[0].price) || 0;
+  }
+  if (!effRate && totalBales > 0 && (sale.subtotal || sale.invoice_total)) {
+    effRate = Math.round(Number(sale.subtotal || sale.invoice_total) / totalBales);
+  }
   const payments = sale.sale_payments || sale.paymentHistory || [];
 
   let displayStatus = sale.status;
@@ -1912,7 +1929,7 @@ window.viewInvoiceDetail = async function(invoiceId) {
         <div style="font-size:0.82rem;color:var(--text-muted);">Invoice Total</div>
         <div style="font-size:1.35rem;font-weight:700;color:var(--primary-navy);">${store.formatINR(sale.invoice_total||sale.invoiceTotal)}</div>
         <div style="font-size:0.85rem;color:var(--text-sub);margin-top:4px;">
-          ${store.formatNumber(sale.bales_count||sale.balesCount)} bales @ ₹ ${sale.rate_per_bale||sale.ratePerBale}
+          ${store.formatNumber(totalBales)} bales @ ₹ ${effRate}
         </div>
       </div>
       <div>
@@ -2419,7 +2436,7 @@ window.openCustomerDetail = function(customerId) {
           <tr style="cursor:pointer;" onclick="window.viewInvoiceDetail('${s.id}')">
             <td><strong style="color:var(--brand-blue);">${s.invoice_number||s.invoiceNumber}</strong></td>
             <td>${store.formatDate(s.invoice_date||s.date)}</td>
-            <td>${s.bales_count||s.balesCount}</td>
+            <td>${s.bales_count || s.balesCount || (s.sale_line_items || []).reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0)}</td>
             <td>${store.formatINR(s.invoice_total||s.invoiceTotal)}</td>
             <td class="${sp>0?'text-red':'text-green'}">${store.formatINR(sp)}</td>
             <td><span class="badge ${sc}">${ds}</span></td>
