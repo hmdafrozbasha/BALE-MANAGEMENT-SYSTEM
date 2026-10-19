@@ -412,33 +412,33 @@ async function renderDashboard() {
   const soldW = stageTotal > 0 ? Math.max(0, 100 - rawW - fermW - readyW) : 0;
 
   appContent.innerHTML = `
-    <div class="dashboard-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
-      <div style="font-size:0.9rem;color:var(--text-sub);">
-        Overview for <strong>${m.role}</strong> • All bale operations & real-time accounts
+    <div class="dashboard-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:14px;">
+      <div style="font-size:0.95rem;color:var(--text-sub);line-height:1.4;">
+        Overview for <strong style="color:#ffffff;">${m.role}</strong> • All bale operations & real-time accounts
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         ${isFinance ? `
           <div style="display:flex;align-items:center;gap:8px;">
             <label style="font-size:0.85rem;font-weight:700;color:#DDFCE8;">Month:</label>
-            <select id="dashMonthSelect" class="form-select" style="padding:7px 14px;font-weight:600;background:rgba(11,48,36,0.85);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:9999px;backdrop-filter:blur(10px);outline:none;">
+            <select id="dashMonthSelect" class="form-select" style="padding:8px 16px;font-size:0.86rem;font-weight:600;background:rgba(11,48,36,0.85);color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:9999px;backdrop-filter:blur(12px);outline:none;cursor:pointer;">
               ${months.map(mo => `<option value="${mo.value}" ${currentMonth===mo.value?'selected':''}>${mo.label}</option>`).join('')}
             </select>
           </div>
         ` : ''}
-        <button class="btn-secondary" style="padding:7px 16px;font-size:0.84rem;font-weight:600;background:rgba(255,255,255,0.1);color:#DDFCE8;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;backdrop-filter:blur(8px);" onclick="window.refreshDashboard()">🔄 Refresh</button>
-        <button class="btn-danger" style="padding:7px 16px;font-size:0.84rem;font-weight:600;background:rgba(217,83,79,0.18);color:#FCA5A5;border:1px solid rgba(217,83,79,0.38);border-radius:9999px;backdrop-filter:blur(8px);" onclick="window.signOut()">Sign Out</button>
+        <button class="btn-secondary" style="padding:8px 18px;font-size:0.86rem;font-weight:600;background:rgba(255,255,255,0.1);color:#DDFCE8;border:1px solid rgba(255,255,255,0.25);border-radius:9999px;backdrop-filter:blur(10px);cursor:pointer;" onclick="window.refreshDashboard()">🔄 Refresh</button>
+        <button class="btn-danger" style="padding:8px 18px;font-size:0.86rem;font-weight:600;background:rgba(217,83,79,0.18);color:#FCA5A5;border:1px solid rgba(217,83,79,0.4);border-radius:9999px;backdrop-filter:blur(10px);cursor:pointer;" onclick="window.signOut()">Sign Out</button>
       </div>
     </div>
 
     <div class="kpi-cards-grid">
       <div class="kpi-card ready" onclick="window.appNav('plots',{status:'Ready'})">
         <div class="kpi-label">Ready for Sale</div>
-        <div class="kpi-value text-green">${store.formatNumber(m.readyBales)} <span style="font-size:1rem;font-weight:500;">bales</span></div>
+        <div class="kpi-value text-green">${store.formatNumber(m.readyBales)} <span style="font-size:1.05rem;font-weight:500;">bales</span></div>
         <div class="kpi-subtext">🌾 Fully fermented & in plots</div>
       </div>
       <div class="kpi-card fermenting" onclick="window.appNav('plots',{status:'Fermenting'})">
         <div class="kpi-label">Fermenting</div>
-        <div class="kpi-value text-amber">${store.formatNumber(m.fermentingBales)} <span style="font-size:1rem;font-weight:500;">bales</span></div>
+        <div class="kpi-value text-amber">${store.formatNumber(m.fermentingBales)} <span style="font-size:1.05rem;font-weight:500;">bales</span></div>
         <div class="kpi-subtext">⏳ Counting towards ${store.data.settings.fermentationDays} days</div>
       </div>
       ${isFinance ? `
@@ -490,10 +490,10 @@ async function renderDashboard() {
       <div class="stage-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
         <div class="stage-title">Stock by Stage (Bales & Hay Stock)</div>
         <div style="text-align:right;">
-          <div style="font-size:0.92rem;font-weight:600;color:#1e293b;">
-            Raw Hay Stock: <strong style="color:#047857;font-size:1.12rem;font-weight:800;letter-spacing:-0.01em;">${store.formatNumber(m.rawMaterialKg)} kg</strong> <span style="font-size:0.84rem;color:#475569;font-weight:600;">(~${store.formatNumber(stageRaw)} bales)</span>
+          <div style="font-size:0.94rem;font-weight:600;color:#1e293b;">
+            Raw Hay Stock: <strong style="color:#047857;font-size:1.15rem;font-weight:800;letter-spacing:-0.01em;">${store.formatNumber(m.rawMaterialKg)} kg</strong> <span style="font-size:0.86rem;color:#475569;font-weight:600;">(~${store.formatNumber(stageRaw)} bales)</span>
           </div>
-          <div style="font-size:0.76rem;color:#64748b;font-weight:500;margin-top:2px;">
+          <div style="font-size:0.78rem;color:#64748b;font-weight:500;margin-top:2px;">
             (Hay Bought: <strong style="color:#0f172a;font-weight:600;">${store.formatNumber(m.totalHayPurchasedKg || 0)} kg</strong> • Used in Production: <strong style="color:#0f172a;font-weight:600;">${store.formatNumber(m.totalHayConsumedKg || 0)} kg</strong>)
           </div>
         </div>
@@ -517,66 +517,80 @@ async function renderDashboard() {
       <div class="section-box">
         <div class="section-box-header">
           <div class="box-title">⏳ Batches Becoming Ready Soon</div>
-          <button class="btn-secondary" style="padding:4px 10px;font-size:0.78rem;" onclick="window.appNav('plots')">View All Plots</button>
+          <button class="btn-secondary" style="padding:6px 14px;font-size:0.82rem;font-weight:600;" onclick="window.appNav('plots')">View All Plots</button>
         </div>
         <div class="data-table-wrapper">
-          <table class="app-table">
-            <thead><tr><th>Batch</th><th>Plot</th><th>Bales</th><th>Ready In</th></tr></thead>
-            <tbody>
-              ${m.batchesReadySoon.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No active fermenting batches</td></tr>' : ''}
-              ${m.batchesReadySoon.map(b => `
-                <tr style="cursor:pointer;" onclick="window.openPlotDetail('${b.plot}')">
-                  <td><strong style="color:var(--brand-blue);">${b.batch}</strong></td>
-                  <td><span class="badge badge-fermenting">${b.plot}</span></td>
-                  <td><strong>${b.bales}</strong></td>
-                  <td>
-                    ${b.isMinuteMode ? `
-                      <div style="display:flex;align-items:center;gap:6px;">
-                        <span class="badge badge-fermenting dash-batch-countdown" data-end="${b.fermEndTimestamp}">
-                          ⏳ ${Math.max(0, Math.ceil((b.fermEndTimestamp - Date.now()) / 1000))}s left
-                        </span>
-                        <small style="color:var(--text-muted);font-size:0.75rem;">(⚡ 1-min test mode)</small>
-                      </div>
-                    ` : `
-                      <div style="display:flex;align-items:center;gap:8px;">
-                        <span class="badge badge-fermenting">${b.daysLeft} days</span>
-                        <small style="color:var(--text-muted);font-size:0.75rem;">(${store.formatDate(b.readyDate)})</small>
-                      </div>
-                    `}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          ${m.batchesReadySoon.length === 0 ? `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 16px;text-align:center;gap:6px;">
+              <span style="font-size:1.8rem;opacity:0.85;">⏳</span>
+              <span style="font-size:0.9rem;font-weight:700;color:#14231D;">No active fermenting batches</span>
+              <span style="font-size:0.78rem;color:#52665C;">All production batches have completed curing and are ready for sale.</span>
+            </div>
+          ` : `
+            <table class="app-table">
+              <thead><tr><th>Batch</th><th>Plot</th><th>Bales</th><th>Ready In</th></tr></thead>
+              <tbody>
+                ${m.batchesReadySoon.map(b => `
+                  <tr style="cursor:pointer;" onclick="window.openPlotDetail('${b.plot}')">
+                    <td><strong style="color:var(--brand-blue);">${b.batch}</strong></td>
+                    <td><span class="badge badge-fermenting">${b.plot}</span></td>
+                    <td><strong>${b.bales}</strong></td>
+                    <td>
+                      ${b.isMinuteMode ? `
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <span class="badge badge-fermenting dash-batch-countdown" data-end="${b.fermEndTimestamp}">
+                            ⏳ ${Math.max(0, Math.ceil((b.fermEndTimestamp - Date.now()) / 1000))}s left
+                          </span>
+                          <small style="color:var(--text-muted);font-size:0.75rem;">(⚡ 1-min test mode)</small>
+                        </div>
+                      ` : `
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <span class="badge badge-fermenting">${b.daysLeft} days</span>
+                          <small style="color:var(--text-muted);font-size:0.75rem;">(${store.formatDate(b.readyDate)})</small>
+                        </div>
+                      `}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `}
         </div>
       </div>
 
       <div class="section-box">
         <div class="section-box-header">
           <div class="box-title">💳 Upcoming Payments</div>
-          ${isFinance ? `<button class="btn-secondary" style="padding:4px 10px;font-size:0.78rem;" onclick="window.appNav('reports')">View Balances</button>` : ''}
+          ${isFinance ? `<button class="btn-secondary" style="padding:6px 14px;font-size:0.82rem;font-weight:600;" onclick="window.appNav('reports')">View Balances</button>` : ''}
         </div>
         ${isFinance ? `
           <div class="data-table-wrapper">
-            <table class="app-table">
-              <thead><tr><th>Who</th><th>Type</th><th>Amount</th><th>Due Date</th></tr></thead>
-              <tbody>
-                ${m.upcomingPayments.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No pending dues</td></tr>' : ''}
-                ${m.upcomingPayments.slice(0,6).map(p => `
-                  <tr>
-                    <td><strong>${p.who}</strong></td>
-                    <td><span class="badge ${p.type==='Receive'?'badge-receive':'badge-pay'}">${p.type==='Receive'?'↓ Receive':'↑ Pay'}</span></td>
-                    <td><strong class="${p.type==='Receive'?'text-green':'text-red'}">${store.formatINR(p.amount)}</strong></td>
-                    <td>
-                      <div style="display:flex;align-items:center;gap:6px;">
-                        <span>${store.formatDate(p.dueDate)}</span>
-                        ${p.isOverdue ? '<span class="badge badge-overdue">OVERDUE</span>' : ''}
-                      </div>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+            ${m.upcomingPayments.length === 0 ? `
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 16px;text-align:center;gap:6px;">
+                <span style="font-size:1.8rem;opacity:0.85;">💳</span>
+                <span style="font-size:0.9rem;font-weight:700;color:#14231D;">No pending dues</span>
+                <span style="font-size:0.78rem;color:#52665C;">All customer receivables and supplier payables are currently settled.</span>
+              </div>
+            ` : `
+              <table class="app-table">
+                <thead><tr><th>Who</th><th>Type</th><th>Amount</th><th>Due Date</th></tr></thead>
+                <tbody>
+                  ${m.upcomingPayments.slice(0,6).map(p => `
+                    <tr>
+                      <td><strong>${p.who}</strong></td>
+                      <td><span class="badge ${p.type==='Receive'?'badge-receive':'badge-pay'}">${p.type==='Receive'?'↓ Receive':'↑ Pay'}</span></td>
+                      <td><strong class="${p.type==='Receive'?'text-green':'text-red'}">${store.formatINR(p.amount)}</strong></td>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <span>${store.formatDate(p.dueDate)}</span>
+                          ${p.isOverdue ? '<span class="badge badge-overdue">OVERDUE</span>' : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `}
           </div>
         ` : '<div style="padding:28px;text-align:center;color:var(--text-muted);">Payment details restricted to Owner and Accountant.</div>'}
       </div>
