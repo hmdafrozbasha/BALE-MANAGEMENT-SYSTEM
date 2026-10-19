@@ -1099,7 +1099,7 @@ class Store {
       localStorage.removeItem('bms_minute_fermentations');
     } catch(e) {}
 
-    // 3. Clear all in-memory operational and finance records
+    // 3. Immediately zero out all in-memory operational and finance records
     this.data.batches = [];
     this.data.purchases = [];
     this.data.sales = [];
@@ -1108,7 +1108,7 @@ class Store {
     this.data.customers = [];
     this.data.rawMaterial = { stockKg: 0, averageCostPerKg: 0 };
 
-    // 4. Empty all plots
+    // 4. Empty all plots in memory
     (this.data.plots || []).forEach(p => {
       p.bales = 0;
       p.status = 'Empty';
@@ -1122,6 +1122,16 @@ class Store {
       p.fermEndTimestamp = null;
       p.costPerBale = 0;
     });
+
+    // 5. Notify immediately so UI shows zero before reload
+    this.notify();
+
+    // 6. Reload from Supabase to confirm zero state (data should now be empty)
+    try {
+      await this.loadAll();
+    } catch(e) {
+      console.warn('Post-reset reload warning:', e.message);
+    }
 
     this.notify();
     return true;

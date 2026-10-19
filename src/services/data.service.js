@@ -253,24 +253,39 @@ export const purchasesService = {
 // ─────────────────────────────────────────────────────────────────
 export const systemService = {
   async resetEverything() {
+    // Try the SQL RPC first (runs as SECURITY DEFINER, bypasses RLS)
     try {
       const { data, error } = await supabase.rpc('reset_all_data');
-      if (!error && (data?.success || data === true)) return data;
-      if (error) console.warn('reset_all_data RPC error, using direct table reset:', error.message);
+      if (!error && (data?.success || data === true)) {
+        console.log('reset_all_data RPC succeeded');
+        return data;
+      }
+      if (error) console.warn('reset_all_data RPC error, running direct deletes:', error.message);
     } catch(e) {
       console.warn('reset_all_data RPC threw:', e.message);
     }
 
-    // Direct cascade delete fallback across all operational tables
-    try { await supabase.from('sale_payments').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('sale_line_items').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('sales').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('purchase_payments').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('purchases').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('attachments').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('inventory_movements').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('production_batches').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
+    // ALWAYS run direct table deletes as fallback / confirmation
+    // (safe neq filter works with authenticated Supabase client)
+    const deleteTable = async (table) => {
+      try {
+        const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) console.warn(`Direct delete ${table} error:`, error.message);
+      } catch(e) { console.warn(`Direct delete ${table} threw:`, e.message); }
+    };
+
+    // Delete in correct FK order: child tables first
+    await deleteTable('sale_payments');
+    await deleteTable('sale_line_items');
+    await deleteTable('sales');
+    await deleteTable('purchase_payments');
+    await deleteTable('purchases');
+    await deleteTable('expenses');
+    await deleteTable('attachments');
+    await deleteTable('inventory_movements');
+    await deleteTable('production_batches');
+
+    // Reset plot inventory
     try {
       await supabase.from('plot_inventory').update({
         status: 'Empty',
@@ -280,11 +295,17 @@ export const systemService = {
         cost_per_bale: 0,
         ferm_start: null,
         ready_date: null
-      }).neq('status', '__NONE__');
-    } catch(e) {}
-    try { await supabase.from('raw_materials').update({ stock_kg: 0 }).neq('stock_kg', -1); } catch(e) {}
-    try { await supabase.from('suppliers').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
-    try { await supabase.from('customers').delete().neq('id', '00000000-0000-0000-0000-000000000000'); } catch(e) {}
+      }).neq('status', '__NONE__IMPOSSIBLE__');
+    } catch(e) { console.warn('plot_inventory reset error:', e.message); }
+
+    // Reset raw materials stock
+    try {
+      await supabase.from('raw_materials').update({ stock_kg: 0 }).neq('stock_kg', -999999);
+    } catch(e) { console.warn('raw_materials reset error:', e.message); }
+
+    // Delete suppliers and customers last
+    await deleteTable('suppliers');
+    await deleteTable('customers');
 
     return { success: true };
   }

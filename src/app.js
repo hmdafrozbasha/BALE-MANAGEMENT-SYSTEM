@@ -3054,7 +3054,9 @@ window.confirmResetEverything = function() {
       dashboardMetrics = null;
       hideLoading();
       closeModal();
-      renderDashboard();
+      // Navigate to dashboard and await full re-render so fresh zero data is shown
+      currentTab = 'dashboard';
+      await renderDashboard();
       showToast('All data has been completely wiped clean! System reset.', 'info');
     } catch (err) {
       hideLoading();
