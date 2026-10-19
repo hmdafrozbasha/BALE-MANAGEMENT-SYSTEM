@@ -363,6 +363,14 @@ DROP POLICY IF EXISTS "Owner can delete inventory movements" ON public.inventory
 CREATE POLICY "Owner can delete inventory movements" ON public.inventory_movements
   FOR DELETE USING (public.is_owner() OR public.is_finance_role());
 
+DROP POLICY IF EXISTS "Owner can delete sale payments" ON public.sale_payments;
+CREATE POLICY "Owner can delete sale payments" ON public.sale_payments
+  FOR DELETE USING (public.is_owner() OR public.is_finance_role());
+
+DROP POLICY IF EXISTS "Owner can delete sale line items" ON public.sale_line_items;
+CREATE POLICY "Owner can delete sale line items" ON public.sale_line_items
+  FOR DELETE USING (public.is_owner() OR public.is_finance_role());
+
 -- ─────────────────────────────────────────────────────────────────
 -- FIX 6: Robust delete_purchase and delete_supplier RPCs
 -- ─────────────────────────────────────────────────────────────────
@@ -433,7 +441,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.delete_supplier(UUID) TO authenticated, anon;
 
 -- ─────────────────────────────────────────────────────────────────
--- FIX 7: reset_all_data RPC (Wipe all operational data)
+-- FIX 7: reset_all_data RPC (Wipe all operational data with safe WHERE clauses)
 -- ─────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.reset_all_data()
 RETURNS JSONB
@@ -441,20 +449,20 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- 1. Wipe finance transactions
-  DELETE FROM public.sale_payments;
-  DELETE FROM public.sale_line_items;
-  DELETE FROM public.sales;
-  DELETE FROM public.purchase_payments;
-  DELETE FROM public.purchases;
-  DELETE FROM public.expenses;
+  -- 1. Wipe finance transactions in reverse foreign key order
+  DELETE FROM public.sale_payments WHERE id IS NOT NULL;
+  DELETE FROM public.sale_line_items WHERE id IS NOT NULL;
+  DELETE FROM public.sales WHERE id IS NOT NULL;
+  DELETE FROM public.purchase_payments WHERE id IS NOT NULL;
+  DELETE FROM public.purchases WHERE id IS NOT NULL;
+  DELETE FROM public.expenses WHERE id IS NOT NULL;
 
   -- 2. Wipe movements and attachments
-  DELETE FROM public.attachments;
-  DELETE FROM public.inventory_movements;
+  DELETE FROM public.attachments WHERE id IS NOT NULL;
+  DELETE FROM public.inventory_movements WHERE id IS NOT NULL;
 
   -- 3. Wipe production batches
-  DELETE FROM public.production_batches;
+  DELETE FROM public.production_batches WHERE id IS NOT NULL;
 
   -- 4. Reset plot inventory to Empty (0 bales)
   UPDATE public.plot_inventory
@@ -465,18 +473,21 @@ BEGIN
       cost_per_bale = 0,
       ferm_start = null,
       ready_date = null,
-      updated_at = now();
+      updated_at = now()
+  WHERE id IS NOT NULL;
 
   -- 5. Reset raw material stock to 0
   UPDATE public.raw_materials
-  SET stock_kg = 0, updated_at = now();
+  SET stock_kg = 0, updated_at = now()
+  WHERE id IS NOT NULL;
 
   -- 6. Wipe suppliers and customers
-  DELETE FROM public.suppliers;
-  DELETE FROM public.customers;
+  DELETE FROM public.suppliers WHERE id IS NOT NULL;
+  DELETE FROM public.customers WHERE id IS NOT NULL;
 
   RETURN jsonb_build_object('success', true, 'message', 'All system data reset successfully');
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.reset_all_data() TO authenticated, anon;
+
 

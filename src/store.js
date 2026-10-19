@@ -353,20 +353,13 @@ class Store {
         .filter(s => (s.invoice_date || s.date || '').startsWith(month))
         .reduce((s,r) => s + (Number(r.bales_count ?? r.balesCount ?? (r.sale_line_items || []).reduce((sb, li) => sb + (Number(li.bales_sold) || 0), 0)) || 0), 0);
 
-      // Prefer non-zero live calculated values if DB RPC returns stale/empty zero metrics
-      const rpcCustDues = Number(metrics?.customer_dues) || 0;
-      const rpcSuppDues = Number(metrics?.supplier_dues) || 0;
-      const rpcSales = Number(metrics?.month_sales) || 0;
-      const rpcCOGS = Number(metrics?.month_cogs) || 0;
-      const rpcExpenses = Number(metrics?.month_expenses) || 0;
-      const rpcSoldBales = Number(metrics?.month_sold_bales) || 0;
-
-      const customerDues = calcCustomerDues > 0 ? calcCustomerDues : rpcCustDues;
-      const supplierDues = calcSupplierDues > 0 ? calcSupplierDues : rpcSuppDues;
-      const monthSales = calcMonthSales > 0 ? calcMonthSales : rpcSales;
-      const monthCOGS = calcMonthCOGS > 0 ? calcMonthCOGS : rpcCOGS;
-      const monthExpenses = calcMonthExpenses > 0 ? calcMonthExpenses : rpcExpenses;
-      const monthSoldBales = calcMonthSoldBales > 0 ? calcMonthSoldBales : rpcSoldBales;
+      // Dashboard metrics always reflect actual loaded store records (0 when empty or reset)
+      const customerDues = calcCustomerDues;
+      const supplierDues = calcSupplierDues;
+      const monthSales = calcMonthSales;
+      const monthCOGS = calcMonthCOGS;
+      const monthExpenses = calcMonthExpenses;
+      const monthSoldBales = calcMonthSoldBales;
       const grossProfit = monthSales - monthCOGS;
       const netProfit = grossProfit - monthExpenses;
 
