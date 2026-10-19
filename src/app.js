@@ -163,9 +163,7 @@ function ensureEventsBound() {
 // INIT
 // ─────────────────────────────────────────────────────────────────
 async function init() {
-  showLoading('Initializing…');
-
-  // Listen for auth changes
+  // Listen for auth/data changes
   store.subscribe(() => {
     if (store.isAuthenticated()) {
       hideAuthScreen();
@@ -177,6 +175,14 @@ async function init() {
     }
   });
 
+  // Check if there is a cached session and data
+  const hasCachedData = !!localStorage.getItem('bms_store_cache');
+
+  if (!hasCachedData) {
+    // First visit — show a minimal spinner
+    showLoading('Loading…');
+  }
+
   const session = await store.initAuth();
 
   if (!session) {
@@ -185,14 +191,9 @@ async function init() {
     return;
   }
 
-  // Signed in — load data
-  showLoading('Loading data…');
-  await store.loadAll();
-
-  // Refresh dashboard metrics from DB
-  try {
-    dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
-  } catch(e) { /* use cached */ }
+  // Use cache-then-refresh: renders instantly from cache if available,
+  // then quietly updates from Supabase in the background.
+  await store.loadFromCacheThenRefresh();
 
   hideLoading();
   hideAuthScreen();

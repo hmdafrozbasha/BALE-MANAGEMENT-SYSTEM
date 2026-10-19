@@ -10,6 +10,9 @@ import {
   systemService
 } from './services/data.service.js';
 
+const CACHE_KEY = 'bms_store_cache';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 class Store {
   constructor() {
     this.listeners = new Set();
@@ -18,6 +21,39 @@ class Store {
     this.currentUser = null;
     this.currentProfile = null;
     this._loading = false;
+    this._backgroundRefreshPending = false;
+  }
+
+  // ─── Cache helpers ────────────────────────────────────────────────
+  _saveCache() {
+    try {
+      const snapshot = {
+        ts: Date.now(),
+        plots: this.data.plots,
+        batches: this.data.batches,
+        suppliers: this.data.suppliers,
+        customers: this.data.customers,
+        purchases: this.data.purchases,
+        sales: this.data.sales,
+        expenses: this.data.expenses,
+        settings: this.data.settings
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
+    } catch(e) { /* quota exceeded — ignore */ }
+  }
+
+  _loadCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const snap = JSON.parse(raw);
+      if (!snap || !snap.ts) return null;
+      return snap;
+    } catch(e) { return null; }
+  }
+
+  _clearCache() {
+    try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
   }
 
   // ─── Auth Helpers ────────────────────────────────────────────────
@@ -117,29 +153,29 @@ class Store {
     if (!this.currentUser) return;
     this._loading = true;
     try {
-      const role = this.getRole();
       const isFinance = this.canViewFinancials();
 
-      // Always load
-      const [plots, batches, settingsData] = await Promise.all([
+      // Fetch all data in a single parallel wave — no sequential batches
+      const fetches = [
         plotsService.getAllWithInventory().catch(() => []),
         batchesService.getAll().catch(() => []),
-        settingsService.get().catch(() => null)
-      ]);
+        settingsService.get().catch(() => null),
+        ...(isFinance ? [
+          suppliersService.getWithBalance().catch(() => []),
+          customersService.getWithBalance().catch(() => []),
+          purchasesService.getAll().catch(() => []),
+          salesService.getAll().catch(() => []),
+          expensesService.getAll().catch(() => [])
+        ] : [])
+      ];
 
-      // If Supabase returns empty, show empty state — do NOT load seed/demo data
-      if (!plots || plots.length === 0) {
-        console.info('No plots found in Supabase — starting with empty state.');
-        this.data.plots = [];
-      }
-      if (!batches || batches.length === 0) {
-        this.data.batches = [];
-      }
+      const results = await Promise.all(fetches);
+      const [plots, batches, settingsData] = results;
 
-      this.data.plots = plots;
-      this.data.batches = batches;
+      this.data.plots = plots || [];
+      this.data.batches = batches || [];
 
-      // Reconcile plots with active batches if plot_inventory in DB was unassigned/empty
+      // Reconcile plots with active batches
       if (this.data.plots && this.data.batches) {
         this.data.batches.forEach(b => {
           const bStatus = b.status || 'Fermenting';
@@ -164,7 +200,7 @@ class Store {
         });
       }
 
-      // Restore active 1-minute countdowns from localStorage
+      // Restore 1-minute fermentation countdowns from localStorage
       try {
         const minuteCountdowns = JSON.parse(localStorage.getItem('bms_minute_fermentations') || '{}');
         (this.data.plots || []).forEach(p => {
@@ -184,40 +220,73 @@ class Store {
         this.data.settings.companyName = settingsData.company_name || 'Bale Manager';
       }
 
-      // Finance-only data
       if (isFinance) {
-        const [suppliers, customers, purchases, sales, expenses] = await Promise.all([
-          suppliersService.getWithBalance().catch(() => []),
-          customersService.getWithBalance().catch(() => []),
-          purchasesService.getAll().catch(() => []),
-          salesService.getAll().catch(() => []),
-          expensesService.getAll().catch(() => [])
-        ]);
-        this.data.suppliers = suppliers;
-        this.data.customers = customers;
-        this.data.purchases = purchases;
-        this.data.sales = sales;
-        this.data.expenses = expenses;
-
-        if (purchases.length === 0) {
-          try {
-            supabase.from('raw_materials').update({ stock_kg: 0 }).neq('stock_kg', 0).then(() => {}).catch(() => {});
-          } catch(e) {}
-        }
+        const [, , , suppliers, customers, purchases, sales, expenses] = results;
+        this.data.suppliers = suppliers || [];
+        this.data.customers = customers || [];
+        this.data.purchases = purchases || [];
+        this.data.sales = sales || [];
+        this.data.expenses = expenses || [];
       }
+
+      // Persist fresh data to cache
+      this._saveCache();
     } catch(e) {
-      console.warn('Load error, using seed template:', e);
-      const backup = JSON.parse(JSON.stringify(INITIAL_DATA));
-      this.data.plots = backup.plots;
-      this.data.batches = backup.batches;
-      this.data.suppliers = backup.suppliers;
-      this.data.customers = backup.customers;
-      this.data.purchases = backup.purchases;
-      this.data.sales = backup.sales;
-      this.data.expenses = backup.expenses;
+      console.warn('loadAll error:', e);
     } finally {
       this._loading = false;
       this.notify();
+    }
+  }
+
+  // ─── Fast init from cache, then background-refresh ────────────────
+  async loadFromCacheThenRefresh() {
+    if (!this.currentUser) return;
+
+    const snap = this._loadCache();
+    const cacheAge = snap ? (Date.now() - snap.ts) : Infinity;
+    const cacheValid = snap && cacheAge < CACHE_TTL_MS;
+
+    if (snap) {
+      // Immediately hydrate from cache for instant UI
+      if (snap.plots) this.data.plots = snap.plots;
+      if (snap.batches) this.data.batches = snap.batches;
+      if (snap.suppliers) this.data.suppliers = snap.suppliers;
+      if (snap.customers) this.data.customers = snap.customers;
+      if (snap.purchases) this.data.purchases = snap.purchases;
+      if (snap.sales) this.data.sales = snap.sales;
+      if (snap.expenses) this.data.expenses = snap.expenses;
+      if (snap.settings) {
+        this.data.settings.fermentationDays = snap.settings.fermentationDays || 30;
+        this.data.settings.companyName = snap.settings.companyName || 'Bale Manager';
+        this.data.settings.activeRole = snap.settings.activeRole || this.data.settings.activeRole;
+      }
+      // Restore minute fermentation countdowns
+      try {
+        const minuteCountdowns = JSON.parse(localStorage.getItem('bms_minute_fermentations') || '{}');
+        (this.data.plots || []).forEach(p => {
+          const key = (p.plot_name || p.id || '').toUpperCase();
+          const stored = minuteCountdowns[key];
+          if (stored && p.status === 'Fermenting') {
+            p.fermUnit = 'minute';
+            p.fermDuration = stored.fermDuration || 1;
+            p.fermEndTimestamp = stored.fermEndTimestamp;
+            p.fermStart = stored.fermStart || p.fermStart;
+          }
+        });
+      } catch(e) {}
+      this.notify(); // Render immediately with cached data
+    }
+
+    // Always refresh in background (or immediately if cache is stale)
+    if (!cacheValid) {
+      // Cache is old — refresh immediately (but still non-blocking)
+      this.loadAll().then(() => this.notify()).catch(console.warn);
+    } else {
+      // Cache is fresh — refresh quietly in background after 2s
+      setTimeout(() => {
+        this.loadAll().then(() => this.notify()).catch(console.warn);
+      }, 2000);
     }
   }
 
@@ -288,11 +357,13 @@ class Store {
   // ─── Dashboard Metrics (from Supabase RPC) ───────────────────────
   async getDashboardMetricsAsync(month) {
     try {
-      const [metrics, batchesSoon, payments] = await Promise.all([
-        dashboardService.getMetrics(month),
-        dashboardService.getBatchesReadySoon(this.getCurrentDate(), this.data.settings.fermentationDays),
-        dashboardService.getUpcomingPayments()
-      ]);
+      // Only getBatchesReadySoon needs a network call (join data).
+      // All financial metrics computed from in-memory store -- instant.
+      let batchesSoon = [];
+      try { batchesSoon = await dashboardService.getBatchesReadySoon(this.getCurrentDate(), this.data.settings.fermentationDays); } catch(e) {}
+      const metrics = null;
+      const payments = [];
+
 
       // Calculate live plot counts from store plots to avoid stale RPC race conditions
       const plotsReady = (this.data.plots || []).filter(p => p.status === 'Ready').reduce((s,p) => s + (Number(p.bales)||0), 0);
@@ -1094,10 +1165,9 @@ class Store {
       console.warn('Backend reset warning:', err.message);
     }
 
-    // 2. Clear any minute fermentation timers
-    try {
-      localStorage.removeItem('bms_minute_fermentations');
-    } catch(e) {}
+    // 2. Clear all cached data (fermentation timers + data cache)
+    try { localStorage.removeItem('bms_minute_fermentations'); } catch(e) {}
+    this._clearCache();
 
     // 3. Immediately zero out all in-memory operational and finance records
     this.data.batches = [];
@@ -1144,3 +1214,4 @@ class Store {
 
 export const store = new Store();
 export default store;
+
