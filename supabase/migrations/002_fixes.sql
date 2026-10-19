@@ -351,3 +351,132 @@ EXCEPTION WHEN OTHERS THEN
   RAISE;
 END;
 $$;
+
+-- ─────────────────────────────────────────────────────────────────
+-- FIX 5: RLS Policies for DELETE on purchase_payments & inventory_movements
+-- ─────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "Owner can delete purchase payments" ON public.purchase_payments;
+CREATE POLICY "Owner can delete purchase payments" ON public.purchase_payments
+  FOR DELETE USING (public.is_owner() OR public.is_finance_role());
+
+DROP POLICY IF EXISTS "Owner can delete inventory movements" ON public.inventory_movements;
+CREATE POLICY "Owner can delete inventory movements" ON public.inventory_movements
+  FOR DELETE USING (public.is_owner() OR public.is_finance_role());
+
+-- ─────────────────────────────────────────────────────────────────
+-- FIX 6: Robust delete_purchase and delete_supplier RPCs
+-- ─────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.delete_purchase(p_purchase_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_purchase RECORD;
+  v_qty_kg NUMERIC;
+BEGIN
+  SELECT * INTO v_purchase FROM public.purchases WHERE id = p_purchase_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', true, 'message', 'Purchase not found or already deleted');
+  END IF;
+
+  v_qty_kg := COALESCE(v_purchase.quantity_kg, v_purchase.quantity * v_purchase.kg_conversion);
+
+  -- 1. Deduct raw material stock
+  IF v_purchase.material_id IS NOT NULL AND v_qty_kg > 0 THEN
+    UPDATE public.raw_materials
+    SET stock_kg = GREATEST(0, stock_kg - v_qty_kg), updated_at = now()
+    WHERE id = v_purchase.material_id;
+  END IF;
+
+  -- 2. Delete payments
+  DELETE FROM public.purchase_payments WHERE purchase_id = p_purchase_id;
+
+  -- 3. Delete attachments
+  DELETE FROM public.attachments WHERE entity_type = 'purchase' AND entity_id = p_purchase_id;
+
+  -- 4. Delete inventory movements
+  DELETE FROM public.inventory_movements WHERE reference_id = p_purchase_id;
+
+  -- 5. Delete the purchase record
+  DELETE FROM public.purchases WHERE id = p_purchase_id;
+
+  RETURN jsonb_build_object('success', true, 'deleted_purchase_id', p_purchase_id, 'invoice_no', v_purchase.invoice_no);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.delete_purchase(UUID) TO authenticated, anon;
+
+CREATE OR REPLACE FUNCTION public.delete_supplier(p_supplier_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_pur_id UUID;
+BEGIN
+  -- Delete all associated purchase payments, attachments, movements, and purchases
+  FOR v_pur_id IN SELECT id FROM public.purchases WHERE supplier_id = p_supplier_id
+  LOOP
+    DELETE FROM public.purchase_payments WHERE purchase_id = v_pur_id;
+    DELETE FROM public.attachments WHERE entity_type = 'purchase' AND entity_id = v_pur_id;
+    DELETE FROM public.inventory_movements WHERE reference_id = v_pur_id;
+  END LOOP;
+
+  DELETE FROM public.purchase_payments WHERE supplier_id = p_supplier_id;
+  DELETE FROM public.purchases WHERE supplier_id = p_supplier_id;
+  DELETE FROM public.suppliers WHERE id = p_supplier_id;
+
+  RETURN jsonb_build_object('success', true, 'deleted_supplier_id', p_supplier_id);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.delete_supplier(UUID) TO authenticated, anon;
+
+-- ─────────────────────────────────────────────────────────────────
+-- FIX 7: reset_all_data RPC (Wipe all operational data)
+-- ─────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.reset_all_data()
+RETURNS JSONB
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- 1. Wipe finance transactions
+  DELETE FROM public.sale_payments;
+  DELETE FROM public.sale_line_items;
+  DELETE FROM public.sales;
+  DELETE FROM public.purchase_payments;
+  DELETE FROM public.purchases;
+  DELETE FROM public.expenses;
+
+  -- 2. Wipe movements and attachments
+  DELETE FROM public.attachments;
+  DELETE FROM public.inventory_movements;
+
+  -- 3. Wipe production batches
+  DELETE FROM public.production_batches;
+
+  -- 4. Reset plot inventory to Empty (0 bales)
+  UPDATE public.plot_inventory
+  SET status = 'Empty',
+      bales_remaining = 0,
+      bales_original = 0,
+      batch_id = null,
+      cost_per_bale = 0,
+      ferm_start = null,
+      ready_date = null,
+      updated_at = now();
+
+  -- 5. Reset raw material stock to 0
+  UPDATE public.raw_materials
+  SET stock_kg = 0, updated_at = now();
+
+  -- 6. Wipe suppliers and customers
+  DELETE FROM public.suppliers;
+  DELETE FROM public.customers;
+
+  RETURN jsonb_build_object('success', true, 'message', 'All system data reset successfully');
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.reset_all_data() TO authenticated, anon;
+

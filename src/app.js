@@ -2852,15 +2852,17 @@ function renderSettings() {
         </div>
       </div>
 
-      <div class="section-box mb-20" style="border-color:#cbd5e1;background:#f8fafc;">
-        <div class="section-box-header">
-          <div class="box-title" style="color:#334155;">🧹 Clean Yard & Reset Data</div>
+      <div class="section-box mb-20" style="border:1.5px solid #ef4444;background:#fef2f2;">
+        <div class="section-box-header" style="border-bottom:1px solid #fee2e2;">
+          <div class="box-title" style="color:#991b1b;display:flex;align-items:center;gap:8px;">
+            <span>⚠️</span> <span>Reset Everything (Delete All Data)</span>
+          </div>
         </div>
-        <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">
-          Remove all batches, purchases, sales, and expenses so you can test freshly with a clean yard and 0 dummy records.
+        <p style="font-size:0.85rem;color:#7f1d1d;margin-bottom:14px;line-height:1.45;">
+          Permanently delete all data in the system — all purchases, suppliers, customer invoices, sales, payments, expenses, production batches, and attachments. All yard plots will be emptied. <strong>This action wipes all data from the database and cannot be undone.</strong>
         </p>
-        <button type="button" class="btn-secondary" style="border-color:#ef4444;color:#ef4444;font-weight:700;" onclick="window.confirmResetData()">
-          🗑️ Clear All Data & Empty Plots
+        <button type="button" class="btn-danger" style="padding:10px 20px;font-weight:700;font-size:0.92rem;background:#dc2626;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.25);" onclick="window.confirmResetEverything()">
+          💣 Reset Everything
         </button>
       </div>
 
@@ -3003,13 +3005,70 @@ window.enable30DayMode = () => {
   showToast('📅 Default set to 30 Days Fermentation mode.');
   renderSettings();
 };
-window.confirmResetData = () => {
-  if (confirm('Are you sure you want to clear all batches, purchases, sales, and expenses? All plots will be emptied.')) {
-    store.resetAllData();
-    showToast('🧹 All data reset! Yard is clean and empty.');
-    render();
+window.confirmResetEverything = function() {
+  if (!store.canDelete()) {
+    showToast('Access denied. Only the Owner can reset all data.', 'error');
+    return;
   }
+
+  modalTitle.textContent = '⚠️ Confirm: Reset Everything';
+  modalBody.innerHTML = `
+    <div style="padding:6px 0;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <span style="font-size:2.5rem;line-height:1;">💣</span>
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;color:#991b1b;">Permanently Delete All System Data?</div>
+          <div style="font-size:0.88rem;color:var(--text-sub);margin-top:6px;line-height:1.45;">
+            This will permanently delete:
+            <ul style="margin:8px 0 8px 18px;font-size:0.84rem;color:#7f1d1d;line-height:1.4;">
+              <li>All purchase bills, supplier accounts & payment ledgers</li>
+              <li>All bale sales, customer invoices & receivables history</li>
+              <li>All production batches, costs & fermentation records</li>
+              <li>All raw material stock & plot bales (all plots will be set to Empty)</li>
+              <li>All uploaded invoice and receipt attachments</li>
+              <li>All expense entries & audit movements</li>
+            </ul>
+            <strong>Are you absolutely sure you want to start completely fresh?</strong>
+          </div>
+        </div>
+      </div>
+      <div id="resetError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;font-size:0.85rem;margin-bottom:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" id="doResetEverythingBtn" class="btn-danger" style="background:#dc2626;padding:10px 22px;font-weight:700;">
+          💣 Yes, Reset Everything Now
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('doResetEverythingBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doResetEverythingBtn');
+    const errDiv = document.getElementById('resetError');
+    btn.textContent = 'Wiping everything…';
+    btn.disabled = true;
+    errDiv.style.display = 'none';
+    try {
+      showLoading('Wiping all system and database records…');
+      await store.resetAllData();
+      dashboardMetrics = null;
+      hideLoading();
+      closeModal();
+      renderDashboard();
+      showToast('All data has been completely wiped clean! System reset.', 'info');
+    } catch (err) {
+      hideLoading();
+      errDiv.textContent = err.message || 'Error resetting system.';
+      errDiv.style.display = 'block';
+      btn.textContent = '💣 Yes, Reset Everything Now';
+      btn.disabled = false;
+    }
+  });
+
+  openModal();
 };
+
+window.confirmResetData = window.confirmResetEverything;
 
 // CSS for spinner
 const style = document.createElement('style');

@@ -6,7 +6,8 @@ import { INITIAL_DATA } from './data.js';
 import {
   settingsService, dashboardService, suppliersService, purchasesService,
   plotsService, batchesService, customersService, salesService,
-  expensesService, reportsService, profilesService, attachmentsService
+  expensesService, reportsService, profilesService, attachmentsService,
+  systemService
 } from './services/data.service.js';
 
 class Store {
@@ -554,13 +555,6 @@ class Store {
     }
   }
 
-  resetAllData() {
-    const role = this.getRole();
-    this.data = JSON.parse(JSON.stringify(INITIAL_DATA));
-    this.data.settings.activeRole = role;
-    this.notify();
-  }
-
   // ─── Production Batch Actions ─────────────────────────────────────
   async addBatch(batchInput) {
     const plotName = batchInput.plotAssigned;
@@ -752,20 +746,18 @@ class Store {
     if (!purchase) return false;
 
     const actualId = purchase.id;
-    try {
-      if (actualId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId)) {
-        await purchasesService.delete(actualId);
-      }
-    } catch(err) {
-      console.warn('Backend delete purchase warning, removing locally:', err.message);
+    // Perform backend delete
+    if (actualId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId)) {
+      await purchasesService.delete(actualId);
     }
 
-    // Remove from in-memory purchases
+    // Remove from in-memory purchases immediately
     this.data.purchases = (this.data.purchases || []).filter(p => p.id !== actualId && (p.invoice_no || p.invoiceNo) !== (purchase.invoice_no || purchase.invoiceNo));
 
-    // Try loading fresh state from DB
+    // Reload state and ensure deleted purchase remains excluded
     try {
       await this.loadAll();
+      this.data.purchases = (this.data.purchases || []).filter(p => p.id !== actualId && (p.invoice_no || p.invoiceNo) !== (purchase.invoice_no || purchase.invoiceNo));
     } catch(e) { /* ignore */ }
 
     this.notify();
@@ -776,22 +768,23 @@ class Store {
     if (!this.canDelete()) {
       throw new Error('Access denied. Only Owner and Accountant can delete suppliers.');
     }
-    const supplier = (this.data.suppliers || []).find(s => s.id === supplierId);
+    const supplier = (this.data.suppliers || []).find(s => s.id === supplierId || s.name === supplierId);
     if (!supplier) return false;
 
-    try {
-      if (supplierId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(supplierId)) {
-        await suppliersService.delete(supplierId);
-      }
-    } catch(err) {
-      console.warn('Backend delete supplier warning, removing locally:', err.message);
+    const actualId = supplier.id;
+    // Perform backend delete
+    if (actualId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId)) {
+      await suppliersService.delete(actualId);
     }
 
-    // Remove from in-memory suppliers
-    this.data.suppliers = (this.data.suppliers || []).filter(s => s.id !== supplierId);
+    // Remove from in-memory suppliers immediately
+    this.data.suppliers = (this.data.suppliers || []).filter(s => s.id !== actualId && s.id !== supplierId && s.name !== supplier.name);
 
-    // Reload fresh state
-    try { await this.loadAll(); } catch(e) { /* ignore */ }
+    // Reload state and ensure deleted supplier remains excluded
+    try {
+      await this.loadAll();
+      this.data.suppliers = (this.data.suppliers || []).filter(s => s.id !== actualId && s.id !== supplierId && s.name !== supplier.name);
+    } catch(e) { /* ignore */ }
 
     this.notify();
     return true;
@@ -1096,31 +1089,49 @@ class Store {
     return changed;
   }
 
-  resetAllData() {
+  async resetAllData() {
+    if (!this.canDelete()) {
+      throw new Error('Access denied. Only the Owner can reset all system data.');
+    }
+
+    // 1. Wipe backend database completely
+    try {
+      await systemService.resetEverything();
+    } catch (err) {
+      console.warn('Backend reset warning:', err.message);
+    }
+
+    // 2. Clear any minute fermentation timers
+    try {
+      localStorage.removeItem('bms_minute_fermentations');
+    } catch(e) {}
+
+    // 3. Clear all in-memory operational and finance records
     this.data.batches = [];
     this.data.purchases = [];
     this.data.sales = [];
     this.data.expenses = [];
-    this.data.rawMaterial = { stockKg: 60000, averageCostPerKg: 4.80 };
-    if (this.data.suppliers) {
-      this.data.suppliers.forEach(s => { s.totalPurchased = 0; s.totalPaid = 0; s.balancePending = 0; });
-    }
-    if (this.data.customers) {
-      this.data.customers.forEach(c => { c.totalPurchased = 0; c.totalPaid = 0; c.balancePending = 0; c.lastPurchaseDate = ''; });
-    }
-    this.data.plots.forEach(p => {
+    this.data.suppliers = [];
+    this.data.customers = [];
+    this.data.rawMaterial = { stockKg: 0, averageCostPerKg: 0 };
+
+    // 4. Empty all plots
+    (this.data.plots || []).forEach(p => {
       p.bales = 0;
       p.status = 'Empty';
       p.batchId = null;
       p.batchNumber = '';
       p.prodDate = '';
       p.fermStart = '';
+      p.readyDate = '';
       p.fermUnit = null;
       p.fermDuration = null;
       p.fermEndTimestamp = null;
       p.costPerBale = 0;
     });
+
     this.notify();
+    return true;
   }
 
   runFermentationDailyCheck() {
