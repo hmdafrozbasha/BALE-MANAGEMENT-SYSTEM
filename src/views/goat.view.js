@@ -370,7 +370,12 @@ function renderGoatPurchases(container) {
                 <div style="font-weight:700;font-size:1.05rem;color:var(--primary-navy);">${sup.name}</div>
                 <div style="font-size:0.8rem;color:var(--text-muted);">${sup.city || 'Livestock Breeder'} • ${sup.phone || ''}</div>
               </div>
-              <span class="badge ${pending > 0 ? 'badge-pay' : 'badge-ready'}">${pending > 0 ? 'Pending' : 'Cleared'}</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="badge ${pending > 0 ? 'badge-pay' : 'badge-ready'}">${pending > 0 ? 'Pending' : 'Cleared'}</span>
+                ${store.canDelete() ? `
+                  <button class="btn-danger" style="padding:2px 7px;font-size:0.75rem;line-height:1.2;" title="Delete Supplier" onclick="window.confirmDeleteGoatRecord('supplier', '${sup.id}', '${(sup.name||'').replace(/'/g, "\\'")}')">🗑</button>
+                ` : ''}
+              </div>
             </div>
             <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-light);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem;">
               <div>
@@ -765,7 +770,12 @@ function renderGoatSales(container) {
                 <div style="font-weight:700;font-size:1.05rem;color:var(--primary-navy);">${cust.name}</div>
                 <div style="font-size:0.8rem;color:var(--text-muted);">${cust.phone || ''}</div>
               </div>
-              <span class="badge ${pending > 0 ? 'badge-pay' : 'badge-ready'}">${pending > 0 ? 'Receivable' : 'Settled'}</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="badge ${pending > 0 ? 'badge-pay' : 'badge-ready'}">${pending > 0 ? 'Receivable' : 'Settled'}</span>
+                ${store.canDelete() ? `
+                  <button class="btn-danger" style="padding:2px 7px;font-size:0.75rem;line-height:1.2;" title="Delete Customer" onclick="window.confirmDeleteGoatRecord('customer', '${cust.id}', '${(cust.name||'').replace(/'/g, "\\'")}')">🗑</button>
+                ` : ''}
+              </div>
             </div>
             <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-light);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem;">
               <div>
@@ -1100,10 +1110,10 @@ function renderGoatContacts(container) {
         <div class="data-table-wrapper">
           <table class="app-table">
             <thead>
-              <tr><th>Name</th><th>Phone</th><th>City</th><th>Total Intake</th><th>Balance Pending</th></tr>
+              <tr><th>Name</th><th>Phone</th><th>City</th><th>Total Intake</th><th>Balance Pending</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              ${suppliers.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:18px;">No suppliers registered yet.</td></tr>' : ''}
+              ${suppliers.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px;">No suppliers registered yet.</td></tr>' : ''}
               ${suppliers.map(s => `
                 <tr>
                   <td><strong>${s.name}</strong></td>
@@ -1111,6 +1121,11 @@ function renderGoatContacts(container) {
                   <td>${s.city || '—'}</td>
                   <td>${store.formatINR(s.totalPurchased || 0)}</td>
                   <td><strong style="color:${Number(s.balancePending || 0) > 0 ? 'var(--red-accent)' : '#087F5B'};">${store.formatINR(s.balancePending || 0)}</strong></td>
+                  <td>
+                    ${store.canDelete() ? `
+                      <button class="btn-danger" style="padding:4px 8px;font-size:0.75rem;" title="Delete Supplier" onclick="window.confirmDeleteGoatRecord('supplier', '${s.id}', '${(s.name||'').replace(/'/g, "\\'")}')">🗑</button>
+                    ` : '—'}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1126,10 +1141,10 @@ function renderGoatContacts(container) {
         <div class="data-table-wrapper">
           <table class="app-table">
             <thead>
-              <tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Sales</th><th>Receivable Pending</th></tr>
+              <tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Sales</th><th>Receivable Pending</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              ${customers.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:18px;">No customers registered yet.</td></tr>' : ''}
+              ${customers.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px;">No customers registered yet.</td></tr>' : ''}
               ${customers.map(c => `
                 <tr>
                   <td><strong>${c.name}</strong></td>
@@ -1137,6 +1152,11 @@ function renderGoatContacts(container) {
                   <td>${c.address || '—'}</td>
                   <td>${store.formatINR(c.totalPurchased || 0)}</td>
                   <td><strong style="color:${Number(c.balancePending || 0) > 0 ? 'var(--red-accent)' : '#087F5B'};">${store.formatINR(c.balancePending || 0)}</strong></td>
+                  <td>
+                    ${store.canDelete() ? `
+                      <button class="btn-danger" style="padding:4px 8px;font-size:0.75rem;" title="Delete Customer" onclick="window.confirmDeleteGoatRecord('customer', '${c.id}', '${(c.name||'').replace(/'/g, "\\'")}')">🗑</button>
+                    ` : '—'}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2260,14 +2280,59 @@ window.openGoatPurchaseDetailModal = function(purchaseId) {
   commonModalOverlay.classList.add('open');
 };
 
-// Helper: Delete confirmation
+// Helper: Delete confirmation modal (no browser popup blockers)
 window.confirmDeleteGoatRecord = function(type, id, ref) {
-  if (confirm(`Are you sure you want to delete goat ${type} record "${ref || id}"? This action cannot be undone.`)) {
-    store.deleteGoatRecord(type, id).then(() => {
-      window.showToast?.(`Goat ${type} record deleted.`);
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const commonModalOverlay = document.getElementById('commonModalOverlay');
+  if (!modalBody || !commonModalOverlay) return;
+
+  const displayType = type.charAt(0).toUpperCase() + type.slice(1);
+  const displayName = ref || id;
+
+  modalTitle.textContent = `Delete ${displayType}`;
+  modalBody.innerHTML = `
+    <div style="padding:10px 0;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;">
+          🗑️
+        </div>
+        <div>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--primary-navy);">
+            Are you sure you want to delete ${displayType.toLowerCase()} "${displayName}"?
+          </div>
+          <div style="font-size:0.83rem;color:var(--text-sub);margin-top:2px;">
+            This will remove the record and recalculate your livestock inventory and accounts.
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px 14px;font-size:0.84rem;color:#B91C1C;margin-bottom:20px;line-height:1.45;">
+        ⚠️ <strong>Notice:</strong> This action is permanent and cannot be undone.
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" id="doDeleteGoatRecordBtn" class="btn-danger" style="padding:8px 18px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          🗑 Yes, Delete
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('doDeleteGoatRecordBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doDeleteGoatRecordBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+    try {
+      await store.deleteGoatRecord(type, id);
+      window.closeModal();
+      window.showToast?.(`Goat ${type} record deleted successfully.`);
       renderGoatFarming();
-    }).catch(err => alert('Delete failed: ' + err.message));
-  }
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = '🗑 Yes, Delete'; }
+    }
+  });
+
+  commonModalOverlay.classList.add('open');
 };
 
 // Excel Export

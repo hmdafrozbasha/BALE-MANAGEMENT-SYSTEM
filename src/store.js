@@ -2061,12 +2061,13 @@ class Store {
     if (!this.canDelete()) throw new Error('Staff users cannot delete records');
 
     if (entityType === 'purchase') {
-      const pur = (this.data.goatPurchases || []).find(p => p.id === id);
+      const pur = (this.data.goatPurchases || []).find(p => p.id === id || p.purchase_ref === id);
+      const actualId = pur?.id || id;
       if (pur) {
         // Remove individual goats linked to this purchase
-        this.data.goats = (this.data.goats || []).filter(g => g.purchase_id !== id && g.purchase_id !== pur.id);
+        this.data.goats = (this.data.goats || []).filter(g => g.purchase_id !== actualId && g.purchase_id !== pur.purchase_ref);
         // Remove batches linked to this purchase
-        this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.purchase_id !== id && g.purchase_id !== pur.id);
+        this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.purchase_id !== actualId && g.purchase_id !== pur.purchase_ref);
         // Adjust supplier balances
         const sup = (this.data.goatSuppliers || []).find(s => s.id === pur.supplier_id || s.name === pur.supplier_name);
         if (sup) {
@@ -2075,10 +2076,11 @@ class Store {
           sup.balancePending = Math.max(0, (Number(sup.balancePending) || 0) - (Number(pur.balance_pending) || 0));
         }
       }
-      this.data.goatPurchases = (this.data.goatPurchases || []).filter(p => p.id !== id);
-      try { await goatPurchasesService.delete(id); } catch(e) {}
+      this.data.goatPurchases = (this.data.goatPurchases || []).filter(p => p.id !== actualId && p.purchase_ref !== id);
+      try { await goatPurchasesService.delete(actualId); } catch(e) {}
     } else if (entityType === 'sale') {
-      const sale = (this.data.goatSales || []).find(s => s.id === id);
+      const sale = (this.data.goatSales || []).find(s => s.id === id || s.invoice_no === id);
+      const actualId = sale?.id || id;
       if (sale) {
         // Revert any sold goats or deducted groups back to inventory
         if (Array.isArray(sale.items)) {
@@ -2109,22 +2111,22 @@ class Store {
           cust.balancePending = Math.max(0, (Number(cust.balancePending) || 0) - (Number(sale.balance_pending) || 0));
         }
       }
-      this.data.goatSales = (this.data.goatSales || []).filter(s => s.id !== id);
-      try { await goatSalesService.delete(id); } catch(e) {}
+      this.data.goatSales = (this.data.goatSales || []).filter(s => s.id !== actualId && s.invoice_no !== id);
+      try { await goatSalesService.delete(actualId); } catch(e) {}
     } else if (entityType === 'expense') {
-      this.data.goatExpenses = (this.data.goatExpenses || []).filter(e => e.id !== id);
+      this.data.goatExpenses = (this.data.goatExpenses || []).filter(e => e.id !== id && e.expense_ref !== id);
       try { await goatExpensesService.delete(id); } catch(e) {}
     } else if (entityType === 'goat') {
-      this.data.goats = (this.data.goats || []).filter(g => g.id !== id);
+      this.data.goats = (this.data.goats || []).filter(g => g.id !== id && g.tag_id !== id);
       try { await goatsService.delete(id); } catch(e) {}
     } else if (entityType === 'group') {
-      this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.id !== id);
+      this.data.goatGroups = (this.data.goatGroups || []).filter(g => g.id !== id && g.group_code !== id);
       try { await goatGroupsService.delete(id); } catch(e) {}
     } else if (entityType === 'supplier') {
-      this.data.goatSuppliers = (this.data.goatSuppliers || []).filter(s => s.id !== id);
+      this.data.goatSuppliers = (this.data.goatSuppliers || []).filter(s => s.id !== id && s.name !== id);
       try { await goatSuppliersService.delete(id); } catch(e) {}
     } else if (entityType === 'customer') {
-      this.data.goatCustomers = (this.data.goatCustomers || []).filter(c => c.id !== id);
+      this.data.goatCustomers = (this.data.goatCustomers || []).filter(c => c.id !== id && c.name !== id);
       try { await goatCustomersService.delete(id); } catch(e) {}
     }
 
