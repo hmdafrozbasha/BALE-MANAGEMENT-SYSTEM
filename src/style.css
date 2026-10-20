@@ -820,8 +820,11 @@ body {
    ───────────────────────────────────────────────────────────────── */
 .dash-two-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .dash-two-columns .section-box {
@@ -833,6 +836,10 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 250px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .dash-two-columns .section-box-header {
@@ -850,7 +857,11 @@ body {
 .dash-two-columns .data-table-wrapper {
   max-height: 250px;
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .dash-two-columns .app-table th {
@@ -2207,6 +2218,28 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   BREAKPOINT: TABLET LANDSCAPE & COMPACT LAPTOPS (1025px - 1220px)
+   ───────────────────────────────────────────────────────────────── */
+@media (min-width: 1025px) and (max-width: 1220px) {
+  .dash-two-columns {
+    grid-template-columns: 1fr !important;
+    gap: 18px;
+  }
+
+  .goat-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .goat-kpi-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
    BREAKPOINT: TABLET & MOBILE (< 1024px)
    ───────────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
@@ -2620,7 +2653,8 @@ body {
    ══════════════════════════════════════════════════════════════════ */
 
 .goat-subnav-container {
-  display: flex;
+  display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: 8px;
   background: rgba(11, 48, 36, 0.45);
