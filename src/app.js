@@ -274,15 +274,7 @@ function bindEvents() {
     });
   });
 
-  // Role display only (actual role comes from DB — selector is visual only)
-  if (roleSelector) {
-    roleSelector.value = store.getRole();
-    roleSelector.addEventListener('change', (e) => {
-      store.data.settings.activeRole = e.target.value;
-      updateRoleUI();
-      render();
-    });
-  }
+
 
   const toggleQuickMenu = (e) => {
     e.stopPropagation();
@@ -343,10 +335,21 @@ function bindEvents() {
 
 function updateRoleUI() {
   const role = store.getRole();
-  if (roleSelector) roleSelector.value = role;
+  const roleIcons = {
+    Owner: '👑',
+    Accountant: '💼',
+    Staff: '👷'
+  };
+  const icon = roleIcons[role] || '🛡️';
+
   if (currentRoleText) currentRoleText.textContent = role;
+  const headerRoleText = document.getElementById('headerRoleText');
+  if (headerRoleText) headerRoleText.textContent = role;
+  const headerRoleIcon = document.getElementById('headerRoleIcon');
+  if (headerRoleIcon) headerRoleIcon.textContent = icon;
   const drawerRole = document.getElementById('mobileDrawerRoleText');
   if (drawerRole) drawerRole.textContent = role;
+  
   const formattedDate = store.formatDate(store.getCurrentDate());
   if (currentDateDisplay) currentDateDisplay.textContent = formattedDate;
   const drawerDate = document.getElementById('mobileDrawerDateDisplay');

@@ -94,14 +94,11 @@
               <span id="currentDateDisplay">05-10-2026</span>
             </div>
 
-            <!-- Role Switcher -->
-            <div class="role-switcher-container">
-              <label class="role-label" for="roleSelector">Role:</label>
-              <select id="roleSelector" class="role-select">
-                <option value="Owner">Owner (Full Access)</option>
-                <option value="Accountant">Accountant (No User Mgmt)</option>
-                <option value="Staff">Staff (Stock Only)</option>
-              </select>
+            <!-- Authenticated User Role Badge (Non-switchable) -->
+            <div class="role-display-badge header-role-badge" id="headerRoleBadge" title="Your authenticated access level">
+              <span id="headerRoleIcon">👑</span>
+              <span class="role-label-text">Role:</span>
+              <strong id="headerRoleText">Owner</strong>
             </div>
           </div>
 

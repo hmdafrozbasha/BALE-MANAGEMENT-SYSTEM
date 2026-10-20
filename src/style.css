@@ -392,39 +392,33 @@ body {
   user-select: none;
 }
 
-.role-switcher-container {
+.header-role-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(183, 243, 107, 0.35);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
   white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.role-label {
+.header-role-badge .role-label-text {
   font-size: 0.76rem;
-  font-weight: 600;
   color: rgba(221, 252, 232, 0.75);
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.role-select {
-  padding: 6px 12px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background-color: rgba(11, 48, 36, 0.88);
-  color: #ffffff;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-  backdrop-filter: blur(12px);
-  max-width: 180px;
-}
-
-.role-select:focus {
-  border-color: var(--bms-bright-emerald);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+.header-role-badge strong {
+  color: #B7F36B;
+  font-weight: 700;
 }
 
 .quick-action-btn {
@@ -2306,10 +2300,9 @@ body {
     font-size: 0.78rem;
   }
 
-  .role-select {
+  .header-role-badge {
     padding: 5px 10px;
     font-size: 0.78rem;
-    max-width: 150px;
   }
 
   .quick-action-btn {
