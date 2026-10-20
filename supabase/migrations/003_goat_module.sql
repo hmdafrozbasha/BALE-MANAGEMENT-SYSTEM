@@ -8,6 +8,36 @@
 SET search_path = public, extensions, pg_catalog;
 
 -- ─────────────────────────────────────────────────────────────────
+-- HELPER FUNCTIONS FOR ROLE-BASED ACCESS & AUTHENTICATION
+-- ─────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.is_authenticated()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT auth.uid() IS NOT NULL;
+$$;
+GRANT EXECUTE ON FUNCTION public.is_authenticated() TO authenticated, anon;
+
+CREATE OR REPLACE FUNCTION public.is_owner()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'owner' AND is_active = true);
+$$;
+GRANT EXECUTE ON FUNCTION public.is_owner() TO authenticated, anon;
+
+CREATE OR REPLACE FUNCTION public.is_finance_role()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('owner', 'accountant') AND is_active = true
+  );
+$$;
+GRANT EXECUTE ON FUNCTION public.is_finance_role() TO authenticated, anon;
+
+CREATE OR REPLACE FUNCTION public.is_active_user()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_active = true);
+$$;
+GRANT EXECUTE ON FUNCTION public.is_active_user() TO authenticated, anon;
+
+-- ─────────────────────────────────────────────────────────────────
 -- SEQUENCES FOR CONCURRENCY-SAFE DOCUMENT IDENTIFIERS
 -- ─────────────────────────────────────────────────────────────────
 CREATE SEQUENCE IF NOT EXISTS public.goat_purchase_seq START 1;
