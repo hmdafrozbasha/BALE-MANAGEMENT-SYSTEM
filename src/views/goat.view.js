@@ -231,7 +231,7 @@ function renderGoatDashboard(container) {
     </div>
 
     <!-- Dashboard Two Columns Layout -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px;margin-bottom:24px;">
+    <div class="dash-two-columns" style="margin-bottom:24px;">
       <!-- Column 1: Recent Purchases -->
       <div class="section-box">
         <div class="section-box-header">
@@ -290,7 +290,7 @@ function renderGoatDashboard(container) {
     </div>
 
     <!-- Herd Breakdown & Recent Expenses Row -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px;">
+    <div class="dash-two-columns" style="margin-bottom:24px;">
       <!-- Herd Composition -->
       <div class="section-box">
         <div class="section-box-header">
@@ -358,7 +358,7 @@ function renderGoatPurchases(container) {
     </div>
 
     <!-- Supplier Overview Cards -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="goat-cards-grid">
       ${suppliers.map(sup => {
         const supPurchases = purchases.filter(p => p.supplier_id === sup.id || p.supplier_name === sup.name);
         const totalPurchased = supPurchases.reduce((s, p) => s + Number(p.total_acquisition_cost || p.totalCost || 0), 0);
@@ -758,7 +758,7 @@ function renderGoatSales(container) {
     </div>
 
     <!-- Customer Overview Cards -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="goat-cards-grid">
       ${customers.map(cust => {
         const custSales = sales.filter(s => s.customer_id === cust.id || s.customer_name === cust.name);
         const totalPurchased = custSales.reduce((s, sl) => s + Number(sl.total_amount || sl.totalAmount || 0), 0);
@@ -1008,7 +1008,7 @@ function renderGoatReports(container) {
     </div>
 
     <!-- P&L Breakdown Card & Balance Sheet Asset -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px;margin-bottom:24px;">
+    <div class="dash-two-columns" style="margin-bottom:24px;">
       <!-- Formal P&L Statement Box -->
       <div class="section-box" id="goatPnlPrintArea">
         <div class="section-box-header">
@@ -1101,7 +1101,7 @@ function renderGoatContacts(container) {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px;">
+    <div class="dash-two-columns" style="margin-bottom:24px;">
       <!-- Suppliers Ledger -->
       <div class="section-box">
         <div class="section-box-header">

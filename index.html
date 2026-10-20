@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Bale Management Software | Agro Bales System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -75,34 +75,43 @@
       <!-- Top Sticky Bar -->
       <header class="top-header">
         <div class="header-left">
-          <h1 class="page-heading-title" id="pageTitle">Owner Dashboard</h1>
-          <div id="roleNoticeBanner" class="role-notice-banner hidden">
-            <span>⚠️</span> <span>Staff Mode: Stock view only. Financial figures are masked.</span>
+          <button id="mobileMenuToggleBtn" class="mobile-menu-toggle-btn" aria-label="Open Navigation Menu" title="Open Navigation Menu">
+            <span class="hamburger-icon">☰</span>
+          </button>
+          <div class="header-titles-group">
+            <h1 class="page-heading-title" id="pageTitle">Owner Dashboard</h1>
+            <div id="roleNoticeBanner" class="role-notice-banner hidden">
+              <span>⚠️</span> <span>Staff Mode: Stock view only. Financial figures are masked.</span>
+            </div>
           </div>
         </div>
 
         <div class="header-right">
-          <!-- Live Date Badge -->
-          <div class="date-badge">
-            <span>📅</span>
-            <span id="currentDateDisplay">05-10-2026</span>
-          </div>
+          <div class="header-meta-group">
+            <!-- Live Date Badge -->
+            <div class="date-badge">
+              <span>📅</span>
+              <span id="currentDateDisplay">05-10-2026</span>
+            </div>
 
-          <!-- Role Switcher -->
-          <div class="role-switcher-container">
-            <label class="role-label" for="roleSelector">Role:</label>
-            <select id="roleSelector" class="role-select">
-              <option value="Owner">Owner (Full Access)</option>
-              <option value="Accountant">Accountant (No User Mgmt)</option>
-              <option value="Staff">Staff (Stock Only)</option>
-            </select>
+            <!-- Role Switcher -->
+            <div class="role-switcher-container">
+              <label class="role-label" for="roleSelector">Role:</label>
+              <select id="roleSelector" class="role-select">
+                <option value="Owner">Owner (Full Access)</option>
+                <option value="Accountant">Accountant (No User Mgmt)</option>
+                <option value="Staff">Staff (Stock Only)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Quick Action Button -->
-          <button id="quickActionHeaderBtn" class="quick-action-btn">
-            <span>＋</span>
-            <span>New Entry</span>
-          </button>
+          <div class="header-actions-group">
+            <button id="quickActionHeaderBtn" class="quick-action-btn">
+              <span>＋</span>
+              <span class="quick-btn-label">New Entry</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -116,28 +125,106 @@
   <!-- Mobile Bottom Navigation Bar (Phone Layout) -->
   <nav class="mobile-bottom-bar" id="mobileBottomBar">
     <button class="mobile-nav-btn active" data-tab="dashboard">
-      <span style="font-size: 1.25rem;">🏠</span>
+      <span class="m-icon">🏠</span>
       <span>Home</span>
     </button>
     <button class="mobile-nav-btn" data-tab="plots">
-      <span style="font-size: 1.25rem;">🌱</span>
+      <span class="m-icon">🌱</span>
       <span>Plots</span>
     </button>
-    <button class="mobile-fab-btn" id="mobileFabBtn" title="Add New Entry">
+    <button class="mobile-fab-btn" id="mobileFabBtn" title="Add New Entry" aria-label="Add New Entry">
       ＋
     </button>
     <button class="mobile-nav-btn finance-required" data-tab="sales">
-      <span style="font-size: 1.25rem;">💼</span>
+      <span class="m-icon">💼</span>
       <span>Sales</span>
     </button>
-    <button class="mobile-nav-btn" id="mobileMoreBtn">
-      <span style="font-size: 1.25rem;">⋯</span>
-      <span>More</span>
+    <button class="mobile-nav-btn" id="mobileMoreBtn" aria-label="Open More Menu">
+      <span class="m-icon">☰</span>
+      <span>Menu</span>
     </button>
   </nav>
 
+  <!-- Mobile Navigation Drawer & Backdrop -->
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop"></div>
+  <aside class="mobile-nav-drawer" id="mobileNavDrawer" aria-label="Mobile Navigation">
+    <div class="mobile-drawer-header">
+      <div class="brand-badge">
+        <div class="brand-icon">🌾</div>
+        <div>
+          <div class="brand-title">Bale Manager</div>
+          <div class="brand-subtitle">v1.0 • Agro Operations</div>
+        </div>
+      </div>
+      <button class="mobile-drawer-close-btn" id="mobileDrawerCloseBtn" aria-label="Close Navigation">&times;</button>
+    </div>
+
+    <div class="mobile-drawer-user-card">
+      <div class="role-display-badge">
+        <span>👑</span> <span id="mobileDrawerRoleText">Owner</span>
+      </div>
+      <div class="date-badge" style="font-size: 0.78rem; padding: 4px 10px;">
+        <span>📅</span> <span id="mobileDrawerDateDisplay">05-10-2026</span>
+      </div>
+    </div>
+
+    <nav class="mobile-drawer-nav">
+      <div class="mobile-nav-section-title">MAIN SECTIONS</div>
+      <a class="mobile-drawer-item active" data-tab="dashboard">
+        <span class="nav-icon">📊</span>
+        <span>Dashboard</span>
+      </a>
+      <a class="mobile-drawer-item" data-tab="plots">
+        <span class="nav-icon">🌱</span>
+        <span>Plots & Fermentation</span>
+      </a>
+      <a class="mobile-drawer-item" data-tab="production">
+        <span class="nav-icon">🏭</span>
+        <span>Production Batches</span>
+      </a>
+      <a class="mobile-drawer-item finance-required" data-tab="purchases">
+        <span class="nav-icon">🛒</span>
+        <span>Purchases & Suppliers</span>
+      </a>
+      <a class="mobile-drawer-item finance-required" data-tab="sales">
+        <span class="nav-icon">💼</span>
+        <span>Sales & Invoices</span>
+      </a>
+      <a class="mobile-drawer-item finance-required" data-tab="expenses">
+        <span class="nav-icon">💸</span>
+        <span>Expenses</span>
+      </a>
+      <a class="mobile-drawer-item finance-required" data-tab="reports">
+        <span class="nav-icon">📈</span>
+        <span>Reports (P&L & Balances)</span>
+      </a>
+
+      <div class="mobile-nav-section-title" style="margin-top: 14px;">LIVESTOCK MODULE</div>
+      <a class="mobile-drawer-item" data-tab="goat-farming">
+        <span class="nav-icon">🐐</span>
+        <span>Goat Farming & Trading</span>
+      </a>
+
+      <div class="mobile-nav-section-title" style="margin-top: 14px;">CONFIGURATION</div>
+      <a class="mobile-drawer-item" data-tab="settings">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings & Yard</span>
+      </a>
+    </nav>
+
+    <div class="mobile-drawer-footer">
+      <button class="mobile-drawer-signout-btn" onclick="window.signOut()">
+        <span>🚪</span> <span>Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Popover Backdrop Overlay (for Quick Menu Popover & More Popover) -->
+  <div class="popover-backdrop" id="popoverBackdrop"></div>
+
   <!-- Quick Action Popover Menu (Phone & Header Trigger) -->
   <div class="quick-menu-popover" id="quickMenuPopover">
+    <div class="popover-heading">Quick Actions</div>
     <button class="quick-menu-item" data-action="new-expense">
       <span>💸</span> <span>Add Bale Expense</span>
     </button>
@@ -161,7 +248,7 @@
     </button>
   </div>
 
-  <!-- Mobile More Menu Popover -->
+  <!-- Mobile More Menu Popover (legacy fallback & quick sheet) -->
   <div class="quick-menu-popover" id="moreMenuPopover" style="left: auto; right: 12px; bottom: 70px;">
     <button class="quick-menu-item" data-tab="goat-farming">
       <span>🐐</span> <span>Goat Farming</span>

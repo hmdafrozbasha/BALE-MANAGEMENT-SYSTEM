@@ -233,19 +233,51 @@ async function init() {
 }
 
 function bindEvents() {
+  const mobileNavDrawer = document.getElementById('mobileNavDrawer');
+  const mobileNavBackdrop = document.getElementById('mobileNavBackdrop');
+  const mobileMenuToggleBtn = document.getElementById('mobileMenuToggleBtn');
+  const mobileDrawerCloseBtn = document.getElementById('mobileDrawerCloseBtn');
+  const popoverBackdrop = document.getElementById('popoverBackdrop');
+
+  const openDrawer = () => {
+    if (mobileNavDrawer) mobileNavDrawer.classList.add('open');
+    if (mobileNavBackdrop) mobileNavBackdrop.classList.add('open');
+    if (quickMenuPopover) quickMenuPopover.classList.remove('open');
+    if (moreMenuPopover) moreMenuPopover.classList.remove('open');
+    if (popoverBackdrop) popoverBackdrop.classList.remove('open');
+  };
+
+  const closeDrawer = () => {
+    if (mobileNavDrawer) mobileNavDrawer.classList.remove('open');
+    if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('open');
+  };
+
+  if (mobileMenuToggleBtn) mobileMenuToggleBtn.addEventListener('click', openDrawer);
+  if (mobileDrawerCloseBtn) mobileDrawerCloseBtn.addEventListener('click', closeDrawer);
+  if (mobileNavBackdrop) mobileNavBackdrop.addEventListener('click', closeDrawer);
+
   document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
     item.addEventListener('click', () => navigateTo(item.getAttribute('data-tab')));
   });
 
   document.querySelectorAll('.mobile-bottom-bar .mobile-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => { const t = btn.getAttribute('data-tab'); if (t) navigateTo(t); });
+    btn.addEventListener('click', () => {
+      const t = btn.getAttribute('data-tab');
+      if (t) navigateTo(t);
+    });
+  });
+
+  document.querySelectorAll('.mobile-drawer-nav .mobile-drawer-item').forEach(item => {
+    item.addEventListener('click', () => {
+      closeDrawer();
+      navigateTo(item.getAttribute('data-tab'));
+    });
   });
 
   // Role display only (actual role comes from DB — selector is visual only)
   if (roleSelector) {
     roleSelector.value = store.getRole();
     roleSelector.addEventListener('change', (e) => {
-      // Only allow owner to see this — just for display demo
       store.data.settings.activeRole = e.target.value;
       updateRoleUI();
       render();
@@ -254,40 +286,55 @@ function bindEvents() {
 
   const toggleQuickMenu = (e) => {
     e.stopPropagation();
-    moreMenuPopover.classList.remove('open');
-    quickMenuPopover.classList.toggle('open');
+    closeDrawer();
+    if (moreMenuPopover) moreMenuPopover.classList.remove('open');
+    const willOpen = !quickMenuPopover.classList.contains('open');
+    quickMenuPopover.classList.toggle('open', willOpen);
+    if (popoverBackdrop) popoverBackdrop.classList.toggle('open', willOpen);
   };
+
   quickActionHeaderBtn.addEventListener('click', toggleQuickMenu);
   if (mobileFabBtn) mobileFabBtn.addEventListener('click', toggleQuickMenu);
 
   if (mobileMoreBtn) {
     mobileMoreBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      quickMenuPopover.classList.remove('open');
-      moreMenuPopover.classList.toggle('open');
+      openDrawer();
+    });
+  }
+
+  if (popoverBackdrop) {
+    popoverBackdrop.addEventListener('click', () => {
+      if (quickMenuPopover) quickMenuPopover.classList.remove('open');
+      if (moreMenuPopover) moreMenuPopover.classList.remove('open');
+      popoverBackdrop.classList.remove('open');
     });
   }
 
   quickMenuPopover.querySelectorAll('.quick-menu-item').forEach(item => {
     item.addEventListener('click', () => {
       quickMenuPopover.classList.remove('open');
+      if (popoverBackdrop) popoverBackdrop.classList.remove('open');
       handleQuickAction(item.getAttribute('data-action'));
     });
   });
 
-  moreMenuPopover.querySelectorAll('.quick-menu-item').forEach(item => {
-    item.addEventListener('click', () => {
-      moreMenuPopover.classList.remove('open');
-      const t = item.getAttribute('data-tab');
-      if (t) navigateTo(t);
+  if (moreMenuPopover) {
+    moreMenuPopover.querySelectorAll('.quick-menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        moreMenuPopover.classList.remove('open');
+        if (popoverBackdrop) popoverBackdrop.classList.remove('open');
+        const t = item.getAttribute('data-tab');
+        if (t) navigateTo(t);
+      });
     });
-  });
+  }
 
   document.addEventListener('click', (e) => {
-    if (!quickMenuPopover.contains(e.target) && e.target !== quickActionHeaderBtn && e.target !== mobileFabBtn)
+    if (!quickMenuPopover.contains(e.target) && e.target !== quickActionHeaderBtn && e.target !== mobileFabBtn) {
       quickMenuPopover.classList.remove('open');
-    if (mobileMoreBtn && !moreMenuPopover.contains(e.target) && e.target !== mobileMoreBtn)
-      moreMenuPopover.classList.remove('open');
+      if (popoverBackdrop) popoverBackdrop.classList.remove('open');
+    }
   });
 
   modalCloseBtn.addEventListener('click', closeModal);
@@ -298,9 +345,12 @@ function updateRoleUI() {
   const role = store.getRole();
   if (roleSelector) roleSelector.value = role;
   if (currentRoleText) currentRoleText.textContent = role;
-  if (currentDateDisplay) currentDateDisplay.textContent = store.formatDate(store.getCurrentDate());
-
-  const profileName = store.currentProfile?.full_name || role;
+  const drawerRole = document.getElementById('mobileDrawerRoleText');
+  if (drawerRole) drawerRole.textContent = role;
+  const formattedDate = store.formatDate(store.getCurrentDate());
+  if (currentDateDisplay) currentDateDisplay.textContent = formattedDate;
+  const drawerDate = document.getElementById('mobileDrawerDateDisplay');
+  if (drawerDate) drawerDate.textContent = formattedDate;
 
   if (role === 'Staff') {
     roleNoticeBanner.classList.remove('hidden');
@@ -321,8 +371,17 @@ function navigateTo(tab) {
   document.querySelectorAll('.mobile-bottom-bar .mobile-nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
   });
+  document.querySelectorAll('.mobile-drawer-nav .mobile-drawer-item').forEach(item => {
+    item.classList.toggle('active', item.getAttribute('data-tab') === tab);
+  });
+  const mobileNavDrawer = document.getElementById('mobileNavDrawer');
+  const mobileNavBackdrop = document.getElementById('mobileNavBackdrop');
+  if (mobileNavDrawer) mobileNavDrawer.classList.remove('open');
+  if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('open');
   render();
 }
+window.navigateTo = navigateTo;
+window.appNav = navigateTo;
 
 async function render() {
   switch (currentTab) {
@@ -3274,7 +3333,7 @@ function renderSettings() {
       </div>
 
       <!-- Two-Column Responsive Grid -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(460px, 1fr));gap:20px;align-items:start;">
+      <div class="settings-responsive-grid">
 
         <!-- LEFT COLUMN: Factory Parameters & Yard Plots -->
         <div style="display:flex;flex-direction:column;gap:20px;">
@@ -3314,7 +3373,7 @@ function renderSettings() {
               <span style="font-size:0.8rem;color:#64748b;font-weight:600;">${sortedPlots.length} Plots Configured</span>
             </div>
             <form id="addPlotForm" style="padding-top:8px;">
-              <div style="display:grid;grid-template-columns:1.5fr 1.5fr auto;gap:12px;align-items:end;">
+              <div class="add-plot-responsive-grid">
                 <div class="form-group">
                   <label class="form-label">Plot Identifier</label>
                   <input type="text" id="new_plotId" class="form-input" placeholder="e.g. C3, D2" style="text-transform:uppercase;" required />
