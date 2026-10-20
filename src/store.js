@@ -185,14 +185,14 @@ class Store {
           expensesService.getAll().catch(() => [])
         ] : []),
         // Parallel Goat Data fetches (strictly independent)
-        goatGroupsService.getAll().catch(() => []),
-        goatsService.getAll().catch(() => []),
+        goatGroupsService.getAll().catch(() => null),
+        goatsService.getAll().catch(() => null),
         ...(isFinance ? [
-          goatSuppliersService.getWithBalance().catch(() => []),
-          goatCustomersService.getWithBalance().catch(() => []),
-          goatPurchasesService.getAll().catch(() => []),
-          goatSalesService.getAll().catch(() => []),
-          goatExpensesService.getAll().catch(() => [])
+          goatSuppliersService.getAll().catch(() => null),
+          goatCustomersService.getAll().catch(() => null),
+          goatPurchasesService.getAll().catch(() => null),
+          goatSalesService.getAll().catch(() => null),
+          goatExpensesService.getAll().catch(() => null)
         ] : [])
       ];
 
@@ -256,23 +256,49 @@ class Store {
         this.data.expenses = results[offset++] || [];
       }
 
-      // Populate goat records if fetched from Supabase (preserve local if remote returned empty array and local has items)
+      // Populate goat records if fetched from Supabase (preserve local fallback if table missing/error)
       const fetchedGoatGroups = results[offset++];
       const fetchedGoats = results[offset++];
-      if (fetchedGoatGroups && fetchedGoatGroups.length > 0) this.data.goatGroups = fetchedGoatGroups;
-      if (fetchedGoats && fetchedGoats.length > 0) this.data.goats = fetchedGoats;
+      if (Array.isArray(fetchedGoatGroups)) this.data.goatGroups = fetchedGoatGroups;
+      if (Array.isArray(fetchedGoats)) this.data.goats = fetchedGoats;
 
       if (isFinance) {
-        const fSuppliers = results[offset++];
-        const fCustomers = results[offset++];
+        const rawSuppliers = results[offset++];
+        const rawCustomers = results[offset++];
         const fPurchases = results[offset++];
         const fSales = results[offset++];
         const fExpenses = results[offset++];
-        if (fSuppliers && fSuppliers.length > 0) this.data.goatSuppliers = fSuppliers;
-        if (fCustomers && fCustomers.length > 0) this.data.goatCustomers = fCustomers;
-        if (fPurchases && fPurchases.length > 0) this.data.goatPurchases = fPurchases;
-        if (fSales && fSales.length > 0) this.data.goatSales = fSales;
-        if (fExpenses && fExpenses.length > 0) this.data.goatExpenses = fExpenses;
+
+        if (Array.isArray(fPurchases)) this.data.goatPurchases = fPurchases;
+        if (Array.isArray(fSales)) this.data.goatSales = fSales;
+        if (Array.isArray(fExpenses)) this.data.goatExpenses = fExpenses;
+
+        if (Array.isArray(rawSuppliers)) {
+          const purchases = this.data.goatPurchases || [];
+          this.data.goatSuppliers = rawSuppliers.map(s => {
+            const supPurchases = purchases.filter(p => p.supplier_id === s.id || p.suppliers?.name === s.name || p.supplier_name === s.name);
+            const totalPurchased = supPurchases.reduce((sum, p) => sum + (Number(p.total_acquisition_cost || p.totalCost || 0)), 0);
+            const totalPaid = supPurchases.reduce((sum, p) => sum + (Number(p.amount_paid || p.amountPaid || 0)), 0);
+            const balancePending = supPurchases.reduce((sum, p) => sum + (Number(p.balance_pending || p.balancePending || 0)), 0);
+            return { ...s, totalPurchased, totalPaid, balancePending };
+          });
+        }
+
+        if (Array.isArray(rawCustomers)) {
+          const sales = this.data.goatSales || [];
+          this.data.goatCustomers = rawCustomers.map(c => {
+            const custSales = sales.filter(s => s.customer_id === c.id || s.customers?.name === c.name || s.customer_name === c.name);
+            const totalPurchased = custSales.reduce((sum, s) => sum + (Number(s.total_amount || s.totalAmount || 0)), 0);
+            const totalPaid = custSales.reduce((sum, s) => sum + (Number(s.amount_paid || s.amountPaid || 0)), 0);
+            const balancePending = custSales.reduce((sum, s) => sum + (Number(s.balance_pending || s.balancePending || 0)), 0);
+            return { ...c, totalPurchased, totalPaid, balancePending };
+          });
+        }
+      }
+
+      // If goat tables exist in cloud, auto-sync any local offline records
+      if (Array.isArray(fetchedGoats) || Array.isArray(fetchedGoatGroups)) {
+        await this.syncLocalGoatDataToCloud();
       }
 
       // Persist fresh data to cache
@@ -282,6 +308,111 @@ class Store {
     } finally {
       this._loading = false;
       this.notify();
+    }
+  }
+
+  // ─── Automatic Cloud Sync for Local Offline Goat Records ──────────
+  async syncLocalGoatDataToCloud() {
+    if (!this.currentUser || this._syncingGoats) return;
+    this._syncingGoats = true;
+
+    try {
+      const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+      // 1. Sync local suppliers
+      const localSuppliers = (this.data.goatSuppliers || []).filter(s => s.id && !isUUID(s.id));
+      for (const s of localSuppliers) {
+        try {
+          const res = await goatSuppliersService.create({
+            name: s.name,
+            phone: s.phone || '',
+            city: s.city || 'Local'
+          });
+          if (res?.id) {
+            const oldId = s.id;
+            s.id = res.id;
+            (this.data.goatPurchases || []).forEach(p => { if (p.supplier_id === oldId) p.supplier_id = res.id; });
+            (this.data.goatGroups || []).forEach(g => { if (g.supplier_id === oldId) g.supplier_id = res.id; });
+            (this.data.goats || []).forEach(g => { if (g.supplier_id === oldId) g.supplier_id = res.id; });
+          }
+        } catch(e) {}
+      }
+
+      // 2. Sync local purchases
+      const localPurchases = (this.data.goatPurchases || []).filter(p => p.id && !isUUID(p.id));
+      for (const p of localPurchases) {
+        try {
+          const res = await goatPurchasesService.savePurchase({
+            ...p,
+            supplier_id: isUUID(p.supplier_id) ? p.supplier_id : null
+          });
+          if (res?.purchase_id || res?.id) {
+            const newId = res.purchase_id || res.id;
+            const oldId = p.id;
+            p.id = newId;
+            if (res.purchase_ref) p.purchase_ref = res.purchase_ref;
+            (this.data.goatGroups || []).forEach(g => { if (g.purchase_id === oldId) g.purchase_id = newId; });
+            (this.data.goats || []).forEach(g => { if (g.purchase_id === oldId) g.purchase_id = newId; });
+          }
+        } catch(e) {}
+      }
+
+      // 3. Sync local goat groups
+      const localGroups = (this.data.goatGroups || []).filter(g => g.id && !isUUID(g.id));
+      for (const g of localGroups) {
+        try {
+          const res = await goatGroupsService.create({
+            group_code: g.group_code,
+            group_name: g.group_name || `Batch ${g.group_code}`,
+            purchase_id: isUUID(g.purchase_id) ? g.purchase_id : null,
+            supplier_id: isUUID(g.supplier_id) ? g.supplier_id : null,
+            purchase_date: g.purchase_date || this.getCurrentDate(),
+            initial_quantity: Number(g.initial_quantity) || 1,
+            current_quantity: Number(g.current_quantity) || 1,
+            total_cost_basis: Number(g.total_cost_basis) || 0,
+            unit_cost_basis: Number(g.unit_cost_basis) || 0,
+            initial_total_weight: Number(g.initial_total_weight) || 0,
+            current_total_weight: Number(g.current_total_weight) || 0,
+            breed: g.breed || 'Mixed/Local',
+            status: g.status || 'Active',
+            notes: g.notes || ''
+          });
+          if (res?.id) g.id = res.id;
+        } catch(e) {}
+      }
+
+      // 4. Sync local individual goats
+      const localGoats = (this.data.goats || []).filter(g => g.id && !isUUID(g.id));
+      for (const g of localGoats) {
+        try {
+          const res = await goatsService.create({
+            tag_id: g.tag_id,
+            name: g.name || '',
+            purchase_id: isUUID(g.purchase_id) ? g.purchase_id : null,
+            supplier_id: isUUID(g.supplier_id) ? g.supplier_id : null,
+            purchase_date: g.purchase_date || this.getCurrentDate(),
+            breed: g.breed || 'Boer',
+            sex: g.sex || 'Male',
+            age_months: Number(g.age_months) || 12,
+            initial_weight: Number(g.initial_weight) || 0,
+            latest_weight: Number(g.latest_weight) || Number(g.initial_weight) || 0,
+            last_weight_date: g.last_weight_date || g.purchase_date || this.getCurrentDate(),
+            acquisition_cost: Number(g.acquisition_cost) || 0,
+            allocated_costs: Number(g.allocated_costs) || 0,
+            total_cost_basis: Number(g.total_cost_basis) || Number(g.acquisition_cost) || 0,
+            status: g.status || 'Active',
+            health_status: g.health_status || 'Healthy',
+            notes: g.notes || ''
+          });
+          if (res?.id) g.id = res.id;
+        } catch(e) {}
+      }
+
+      this._saveCache();
+    } catch(e) {
+      console.warn('syncLocalGoatDataToCloud error:', e.message);
+    } finally {
+      this._syncingGoats = false;
     }
   }
 
@@ -358,16 +489,8 @@ class Store {
       this.notify(); // Render immediately with cached data
     }
 
-    // Always refresh in background (or immediately if cache is stale)
-    if (!cacheValid) {
-      // Cache is old — refresh immediately (but still non-blocking)
-      this.loadAll().then(() => this.notify()).catch(console.warn);
-    } else {
-      // Cache is fresh — refresh quietly in background after 2s
-      setTimeout(() => {
-        this.loadAll().then(() => this.notify()).catch(console.warn);
-      }, 2000);
-    }
+    // Always refresh without delay for live sync
+    this.loadAll().then(() => this.notify()).catch(console.warn);
   }
 
   // ─── Pub/Sub ─────────────────────────────────────────────────────

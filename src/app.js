@@ -681,11 +681,35 @@ async function renderDashboard() {
 
 window.refreshDashboard = async function() {
   showLoading('Refreshing data…');
+  localStorage.removeItem('bms_store_cache');
   await store.loadAll();
   dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
   hideLoading();
   await renderDashboard();
   showToast('Dashboard refreshed');
+};
+
+window.triggerGlobalSync = async function() {
+  const btn = document.getElementById('headerSyncBtn');
+  if (btn) {
+    btn.classList.add('rotating');
+    btn.disabled = true;
+  }
+  showLoading('Synchronizing with cloud…');
+  try {
+    localStorage.removeItem('bms_store_cache');
+    await store.loadAll();
+    await render();
+    showToast('Data synchronized successfully');
+  } catch(e) {
+    showToast('Sync error: ' + (e.message || e), 'error');
+  } finally {
+    hideLoading();
+    if (btn) {
+      btn.classList.remove('rotating');
+      btn.disabled = false;
+    }
+  }
 };
 
 window.signOut = async function() {

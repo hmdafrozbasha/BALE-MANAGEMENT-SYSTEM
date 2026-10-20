@@ -148,7 +148,8 @@ function renderGoatDashboard(container) {
         <h2 style="font-size:1.4rem;font-weight:800;color:var(--text-dark-primary);margin:0;font-family:var(--font-heading);">Goat Farm Overview</h2>
         <div style="font-size:0.85rem;color:var(--text-sub);">Real-time livestock inventory, weight monitoring, health ledger & financial performance.</div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn-secondary" onclick="window.triggerGlobalSync()" title="Synchronize latest cloud data">🔄 Refresh</button>
         <button class="btn-primary" onclick="window.openNewGoatPurchaseModal()">＋ Purchase Goats</button>
         ${isFinance ? `<button class="btn-primary" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="window.openNewGoatSaleModal()">＋ Sell Goats</button>` : ''}
         ${isFinance ? `<button class="btn-secondary" onclick="window.openNewGoatExpenseModal()">＋ Add Expense</button>` : ''}

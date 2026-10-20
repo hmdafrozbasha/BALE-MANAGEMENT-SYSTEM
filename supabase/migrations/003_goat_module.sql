@@ -488,10 +488,14 @@ DECLARE
   v_goat_cost NUMERIC(14,2);
 BEGIN
   -- Supplier resolution
-  v_supplier_id := NULLIF(p_data->>'supplier_id', '')::UUID;
+  BEGIN
+    v_supplier_id := NULLIF(p_data->>'supplier_id', '')::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    v_supplier_id := NULL;
+  END;
   IF v_supplier_id IS NULL THEN
     INSERT INTO public.goat_suppliers(name, phone, city, created_by)
-    VALUES (p_data->>'supplier_name', COALESCE(p_data->>'supplier_phone', ''), COALESCE(p_data->>'supplier_city', 'Local'), v_user_id)
+    VALUES (COALESCE(p_data->>'supplier_name', 'General Livestock Supplier'), COALESCE(p_data->>'supplier_phone', ''), COALESCE(p_data->>'supplier_city', 'Local'), v_user_id)
     RETURNING id INTO v_supplier_id;
   END IF;
 
@@ -653,10 +657,14 @@ DECLARE
   v_group_unit_cost NUMERIC(14,2);
 BEGIN
   -- Customer resolution
-  v_customer_id := NULLIF(p_data->>'customer_id', '')::UUID;
+  BEGIN
+    v_customer_id := NULLIF(p_data->>'customer_id', '')::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    v_customer_id := NULL;
+  END;
   IF v_customer_id IS NULL THEN
     INSERT INTO public.goat_customers(name, phone, address, created_by)
-    VALUES (p_data->>'customer_name', COALESCE(p_data->>'customer_phone', ''), COALESCE(p_data->>'customer_address', ''), v_user_id)
+    VALUES (COALESCE(p_data->>'customer_name', 'Direct Livestock Buyer'), COALESCE(p_data->>'customer_phone', ''), COALESCE(p_data->>'customer_address', ''), v_user_id)
     RETURNING id INTO v_customer_id;
   END IF;
 
@@ -1120,6 +1128,7 @@ DECLARE
   v_total_goats_owned INT := 0;
   v_indiv_goats_count INT := 0;
   v_active_groups_count INT := 0;
+  v_groups_inventory_val NUMERIC(14,2) := 0;
   v_purchases_month NUMERIC(14,2) := 0;
   v_sales_month NUMERIC(14,2) := 0;
   v_expenses_month NUMERIC(14,2) := 0;
@@ -1145,14 +1154,14 @@ BEGIN
 
   -- 3: Active groups
   SELECT COUNT(*), COALESCE(SUM(current_quantity), 0), COALESCE(SUM(total_cost_basis), 0)
-  INTO v_active_groups_count, v_total_goats_owned, v_purchases_month
+  INTO v_active_groups_count, v_total_goats_owned, v_groups_inventory_val
   FROM public.goat_groups
   WHERE current_quantity > 0 AND status <> 'Archived';
 
   -- Total goats owned = individual active + sum of current group quantities
   v_total_goats_owned := v_indiv_goats_count + v_total_goats_owned;
   -- Total inventory valuation = individual active cost basis + active groups cost basis
-  v_herd_inventory_val := v_herd_inventory_val + v_purchases_month;
+  v_herd_inventory_val := v_herd_inventory_val + v_groups_inventory_val;
 
   -- 4: Total purchases this month
   SELECT COALESCE(SUM(total_acquisition_cost), 0)

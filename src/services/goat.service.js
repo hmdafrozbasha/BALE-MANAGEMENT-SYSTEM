@@ -48,16 +48,20 @@ export const goatSuppliersService = {
         .select('*')
         .order('name', { ascending: true });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_suppliers query:', error.message);
+    } catch (e) {
+      console.warn('goat_suppliers error:', e.message);
+    }
+    return null;
   },
 
-  async getWithBalance() {
+  async getWithBalance(knownPurchases) {
     const suppliers = await this.getAll();
-    const purchases = await goatPurchasesService.getAll();
+    if (!Array.isArray(suppliers)) return null;
+    const purchases = Array.isArray(knownPurchases) ? knownPurchases : ((await goatPurchasesService.getAll()) || []);
 
     return suppliers.map(s => {
-      const supPurchases = purchases.filter(p => p.supplier_id === s.id || p.suppliers?.name === s.name);
+      const supPurchases = purchases.filter(p => p.supplier_id === s.id || p.suppliers?.name === s.name || p.supplier_name === s.name);
       const totalPurchased = supPurchases.reduce((sum, p) => sum + (Number(p.total_acquisition_cost || p.totalCost || 0)), 0);
       const totalPaid = supPurchases.reduce((sum, p) => sum + (Number(p.amount_paid || p.amountPaid || 0)), 0);
       const balancePending = supPurchases.reduce((sum, p) => sum + (Number(p.balance_pending || p.balancePending || 0)), 0);
@@ -100,16 +104,20 @@ export const goatCustomersService = {
         .select('*')
         .order('name', { ascending: true });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_customers query:', error.message);
+    } catch (e) {
+      console.warn('goat_customers error:', e.message);
+    }
+    return null;
   },
 
-  async getWithBalance() {
+  async getWithBalance(knownSales) {
     const customers = await this.getAll();
-    const sales = await goatSalesService.getAll();
+    if (!Array.isArray(customers)) return null;
+    const sales = Array.isArray(knownSales) ? knownSales : ((await goatSalesService.getAll()) || []);
 
     return customers.map(c => {
-      const custSales = sales.filter(s => s.customer_id === c.id || s.customers?.name === c.name);
+      const custSales = sales.filter(s => s.customer_id === c.id || s.customers?.name === c.name || s.customer_name === c.name);
       const totalPurchased = custSales.reduce((sum, s) => sum + (Number(s.total_amount || s.totalAmount || 0)), 0);
       const totalPaid = custSales.reduce((sum, s) => sum + (Number(s.amount_paid || s.amountPaid || 0)), 0);
       const balancePending = custSales.reduce((sum, s) => sum + (Number(s.balance_pending || s.balancePending || 0)), 0);
@@ -152,8 +160,11 @@ export const goatPurchasesService = {
         .select('*, goat_suppliers(name, city, phone)')
         .order('purchase_date', { ascending: false });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_purchases query:', error.message);
+    } catch (e) {
+      console.warn('goat_purchases error:', e.message);
+    }
+    return null;
   },
 
   async savePurchase(purchaseData) {
@@ -229,12 +240,22 @@ export const goatGroupsService = {
         .select('*, goat_suppliers(name, city), goat_purchases(purchase_ref)')
         .order('purchase_date', { ascending: false });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_groups query:', error.message);
+    } catch (e) {
+      console.warn('goat_groups error:', e.message);
+    }
+    return null;
+  },
+
+  async create(data) {
+    const { data: res, error } = await supabase.from('goat_groups').insert(data).select().single();
+    if (error) throw error;
+    return res;
   },
 
   async getActive() {
     const list = await this.getAll();
+    if (!Array.isArray(list)) return [];
     return list.filter(g => g.current_quantity > 0 && g.status !== 'Archived' && g.status !== 'Sold Out');
   },
 
@@ -270,12 +291,16 @@ export const goatsService = {
         .select('*, goat_groups(group_code, group_name), goat_suppliers(name), goat_purchases(purchase_ref)')
         .order('tag_id', { ascending: true });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goats query:', error.message);
+    } catch (e) {
+      console.warn('goats error:', e.message);
+    }
+    return null;
   },
 
   async getActive() {
     const list = await this.getAll();
+    if (!Array.isArray(list)) return [];
     return list.filter(g => g.status === 'Active' || g.status === 'Available for Sale');
   },
 
@@ -383,8 +408,11 @@ export const goatSalesService = {
         .select('*, goat_customers(name, phone, address), goat_sale_items(*, goats(tag_id, breed), goat_groups(group_code))')
         .order('sale_date', { ascending: false });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_sales query:', error.message);
+    } catch (e) {
+      console.warn('goat_sales error:', e.message);
+    }
+    return null;
   },
 
   async saveSale(saleData) {
@@ -460,8 +488,11 @@ export const goatExpensesService = {
         .select('*, goats(tag_id), goat_groups(group_code)')
         .order('expense_date', { ascending: false });
       if (!error && data) return data;
-    } catch (e) {}
-    return [];
+      if (error) console.warn('goat_expenses query:', error.message);
+    } catch (e) {
+      console.warn('goat_expenses error:', e.message);
+    }
+    return null;
   },
 
   async create(expenseData) {
