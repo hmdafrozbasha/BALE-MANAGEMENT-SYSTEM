@@ -2687,19 +2687,28 @@ body {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.goat-subnav-btn:hover {
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+.goat-subnav-btn:focus {
+  outline: none;
+}
+
+@media (hover: hover) {
+  .goat-subnav-btn:hover:not(.active) {
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
 }
 
 .goat-subnav-btn.active {
   color: #FFFFFF;
-  background: linear-gradient(135deg, #10B981 0%, #087F5B 100%);
-  border-color: rgba(183, 243, 107, 0.5);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  background: linear-gradient(135deg, #10B981 0%, #087F5B 100%) !important;
+  border-color: rgba(183, 243, 107, 0.5) !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
 }
 
 .goat-kpi-grid {

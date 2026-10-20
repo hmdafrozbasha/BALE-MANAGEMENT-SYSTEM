@@ -24,34 +24,50 @@ export function renderGoatFarming(subTab) {
 
   const isFinance = store.canViewFinancials();
 
+  // If subnav already exists in DOM, preserve its scroll position & only update active state + view content
+  const existingSubnav = appContent.querySelector('.goat-subnav-container');
+  const existingContent = document.getElementById('goatViewContent');
+
+  if (existingSubnav && existingContent) {
+    existingSubnav.querySelectorAll('.goat-subnav-btn').forEach(btn => {
+      const match = btn.getAttribute('data-subtab') === currentGoatSubTab;
+      btn.classList.toggle('active', match);
+      if (match) {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    });
+    renderActiveGoatSubView();
+    return;
+  }
+
   appContent.innerHTML = `
     <!-- Goat Module Sub-Navigation Bar -->
     <div class="goat-subnav-container">
-      <button class="goat-subnav-btn ${currentGoatSubTab === 'dashboard' ? 'active' : ''}" onclick="window.switchGoatTab('dashboard')">
+      <button class="goat-subnav-btn ${currentGoatSubTab === 'dashboard' ? 'active' : ''}" data-subtab="dashboard" onclick="window.switchGoatTab('dashboard')">
         <span>📊</span> <span>Goat Dashboard</span>
       </button>
       ${isFinance ? `
-        <button class="goat-subnav-btn ${currentGoatSubTab === 'purchases' ? 'active' : ''}" onclick="window.switchGoatTab('purchases')">
+        <button class="goat-subnav-btn ${currentGoatSubTab === 'purchases' ? 'active' : ''}" data-subtab="purchases" onclick="window.switchGoatTab('purchases')">
           <span>🛒</span> <span>Goat Purchases</span>
         </button>
       ` : ''}
-      <button class="goat-subnav-btn ${currentGoatSubTab === 'inventory' ? 'active' : ''}" onclick="window.switchGoatTab('inventory')">
+      <button class="goat-subnav-btn ${currentGoatSubTab === 'inventory' ? 'active' : ''}" data-subtab="inventory" onclick="window.switchGoatTab('inventory')">
         <span>🐐</span> <span>Herd Inventory</span>
       </button>
-      <button class="goat-subnav-btn ${currentGoatSubTab === 'health' ? 'active' : ''}" onclick="window.switchGoatTab('health')">
+      <button class="goat-subnav-btn ${currentGoatSubTab === 'health' ? 'active' : ''}" data-subtab="health" onclick="window.switchGoatTab('health')">
         <span>🩺</span> <span>Growth & Health</span>
       </button>
       ${isFinance ? `
-        <button class="goat-subnav-btn ${currentGoatSubTab === 'sales' ? 'active' : ''}" onclick="window.switchGoatTab('sales')">
+        <button class="goat-subnav-btn ${currentGoatSubTab === 'sales' ? 'active' : ''}" data-subtab="sales" onclick="window.switchGoatTab('sales')">
           <span>💼</span> <span>Goat Sales</span>
         </button>
-        <button class="goat-subnav-btn ${currentGoatSubTab === 'expenses' ? 'active' : ''}" onclick="window.switchGoatTab('expenses')">
+        <button class="goat-subnav-btn ${currentGoatSubTab === 'expenses' ? 'active' : ''}" data-subtab="expenses" onclick="window.switchGoatTab('expenses')">
           <span>💸</span> <span>Goat Expenses</span>
         </button>
-        <button class="goat-subnav-btn ${currentGoatSubTab === 'reports' ? 'active' : ''}" onclick="window.switchGoatTab('reports')">
+        <button class="goat-subnav-btn ${currentGoatSubTab === 'reports' ? 'active' : ''}" data-subtab="reports" onclick="window.switchGoatTab('reports')">
           <span>📈</span> <span>Goat Reports</span>
         </button>
-        <button class="goat-subnav-btn ${currentGoatSubTab === 'contacts' ? 'active' : ''}" onclick="window.switchGoatTab('contacts')">
+        <button class="goat-subnav-btn ${currentGoatSubTab === 'contacts' ? 'active' : ''}" data-subtab="contacts" onclick="window.switchGoatTab('contacts')">
           <span>👥</span> <span>Contacts & Ledgers</span>
         </button>
       ` : ''}
