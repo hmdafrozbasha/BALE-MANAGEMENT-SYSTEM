@@ -1765,10 +1765,15 @@ class Store {
     try {
       const res = await goatPurchasesService.savePurchase({
         ...newPurchase,
+        supplier_id: purchaseInput.supplier_id || null,
+        supplier_name: purchaseInput.supplier_name,
+        supplier_phone: purchaseInput.supplier_phone || '',
+        supplier_city: purchaseInput.supplier_city || '',
         goats: purchaseInput.goats
       });
       if (res?.purchase_id) newPurchase.id = res.purchase_id;
       if (res?.purchase_ref) newPurchase.purchase_ref = res.purchase_ref;
+      if (res?.supplier_id) newPurchase.supplier_id = res.supplier_id;
     } catch(e) {
       console.warn('addGoatPurchase RPC fallback:', e.message);
     }

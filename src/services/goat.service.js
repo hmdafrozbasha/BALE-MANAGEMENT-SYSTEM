@@ -175,10 +175,22 @@ export const goatPurchasesService = {
     } catch (e) {}
 
     // Direct fallback insertion:
+    let supId = purchaseData.supplier_id;
+    if (!supId && purchaseData.supplier_name) {
+      try {
+        const { data: newSup } = await supabase.from('goat_suppliers').insert({
+          name: purchaseData.supplier_name,
+          phone: purchaseData.supplier_phone || '',
+          city: purchaseData.supplier_city || 'Local'
+        }).select().single();
+        if (newSup?.id) supId = newSup.id;
+      } catch(e) {}
+    }
+
     const { data: pur, error: purErr } = await supabase.from('goat_purchases').insert({
       purchase_ref: purchaseData.purchase_ref || `GOAT-PUR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random()*9000)}`,
       purchase_date: purchaseData.purchase_date || new Date().toISOString().split('T')[0],
-      supplier_id: purchaseData.supplier_id,
+      supplier_id: supId,
       purchase_method: purchaseData.purchase_method || 'group',
       quantity: purchaseData.quantity,
       price_per_goat: purchaseData.price_per_goat || 0,

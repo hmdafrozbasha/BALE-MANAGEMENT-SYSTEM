@@ -1197,19 +1197,76 @@ window.openNewGoatPurchaseModal = function() {
   const commonModalOverlay = document.getElementById('commonModalOverlay');
   if (!modalBody || !commonModalOverlay) return;
 
-  const suppliers = store.data.goatSuppliers || [];
+  // Deduplicate and aggregate all known suppliers from contacts and past purchase records
+  const supMap = new Map();
+  (store.data.goatSuppliers || []).forEach(s => {
+    if (s?.name) {
+      supMap.set(s.name.toLowerCase().trim(), {
+        id: s.id || '',
+        name: s.name,
+        phone: s.phone || '',
+        city: s.city || ''
+      });
+    }
+  });
+  (store.data.goatPurchases || []).forEach(p => {
+    const name = p.supplier_name || p.goat_suppliers?.name;
+    if (name && !supMap.has(name.toLowerCase().trim())) {
+      supMap.set(name.toLowerCase().trim(), {
+        id: p.supplier_id || '',
+        name: name,
+        phone: p.supplier_phone || '',
+        city: p.supplier_city || ''
+      });
+    }
+  });
+  const suppliers = Array.from(supMap.values());
 
   modalTitle.textContent = 'Record Goat Purchase (Livestock Intake)';
   modalBody.innerHTML = `
     <form id="newGoatPurchaseForm">
       <div class="form-grid-3">
-        <div class="form-group">
-          <label class="form-label">Supplier / Breeder</label>
-          <input type="text" id="gp_supplier" class="form-input" list="goatSupplierList" placeholder="Select or type supplier name" required />
-          <datalist id="goatSupplierList">
-            ${suppliers.map(s => `<option value="${s.name}"></option>`).join('')}
-          </datalist>
+        <!-- Supplier / Breeder Selection -->
+        <div class="form-group" style="position:relative;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <label class="form-label" style="margin-bottom:0;">Supplier / Breeder <span style="color:#ef4444;">*</span></label>
+            <button type="button" id="gp_toggle_new_sup_btn" onclick="window.toggleGoatPurchaseNewSupplier()" style="background:none;border:none;color:#0d9488;font-size:0.78rem;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:4px;">
+              <span>＋ Add New Supplier</span>
+            </button>
+          </div>
+
+          <!-- Existing Supplier Dropdown -->
+          <div id="gp_existing_sup_wrap">
+            <select id="gp_supplier_select" class="form-select" onchange="window.onGoatSupplierSelected(this)" required>
+              <option value="">-- Choose Existing Supplier --</option>
+              ${suppliers.map(s => `
+                <option value="${s.id || s.name}" data-name="${s.name}" data-phone="${s.phone || ''}" data-city="${s.city || ''}">
+                  🧑‍🌾 ${s.name} ${s.city ? `(${s.city})` : ''} ${s.phone ? `• ${s.phone}` : ''}
+                </option>
+              `).join('')}
+              <option value="__NEW__">➕ + Register New Supplier...</option>
+            </select>
+            <div id="gp_selected_sup_badge" style="display:none;margin-top:6px;font-size:0.78rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;"></div>
+          </div>
+
+          <!-- New Supplier Form (revealed when toggled or __NEW__ selected) -->
+          <div id="gp_new_sup_wrap" style="display:none;background:#f8fafc;border:1.5px dashed #94a3b8;border-radius:8px;padding:10px;margin-top:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:0.8rem;font-weight:700;color:#0f172a;">➕ New Supplier Details</span>
+              <button type="button" onclick="window.toggleGoatPurchaseNewSupplier(false)" style="background:none;border:none;color:#64748b;font-size:0.74rem;cursor:pointer;text-decoration:underline;">
+                ← Choose Existing
+              </button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <input type="text" id="gp_new_sup_name" class="form-input" placeholder="Supplier / Breeder Name *" style="font-size:0.85rem;" autocomplete="off" />
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <input type="tel" id="gp_new_sup_phone" class="form-input" placeholder="Phone Number (optional)" style="font-size:0.82rem;" />
+                <input type="text" id="gp_new_sup_city" class="form-input" placeholder="City / District (optional)" style="font-size:0.82rem;" />
+              </div>
+            </div>
+          </div>
         </div>
+
         <div class="form-group">
           <label class="form-label">Purchase Date</label>
           <input type="date" id="gp_date" class="form-input" value="${store.getCurrentDate()}" required />
@@ -1315,6 +1372,43 @@ window.openNewGoatPurchaseModal = function() {
     btn.disabled = true;
 
     try {
+      let supplierId = '';
+      let supplierName = '';
+      let supplierPhone = '';
+      let supplierCity = '';
+
+      const isNewSupplier = document.getElementById('gp_new_sup_wrap')?.style.display !== 'none';
+      if (isNewSupplier) {
+        supplierName = (document.getElementById('gp_new_sup_name')?.value || '').trim();
+        supplierPhone = (document.getElementById('gp_new_sup_phone')?.value || '').trim();
+        supplierCity = (document.getElementById('gp_new_sup_city')?.value || '').trim();
+
+        if (!supplierName) {
+          alert('Please enter the supplier / breeder name.');
+          document.getElementById('gp_new_sup_name')?.focus();
+          btn.textContent = 'Confirm & Record Intake';
+          btn.disabled = false;
+          return;
+        }
+      } else {
+        const select = document.getElementById('gp_supplier_select');
+        const opt = select?.options[select.selectedIndex];
+        const val = select?.value;
+
+        if (!val || val === '__NEW__') {
+          alert('Please select an existing supplier or click "＋ Add New Supplier" to enter a new one.');
+          select?.focus();
+          btn.textContent = 'Confirm & Record Intake';
+          btn.disabled = false;
+          return;
+        }
+
+        supplierId = val;
+        supplierName = opt?.getAttribute('data-name') || opt?.text?.replace(/^🧑‍🌾\s*/, '').trim() || '';
+        supplierPhone = opt?.getAttribute('data-phone') || '';
+        supplierCity = opt?.getAttribute('data-city') || '';
+      }
+
       const qty = Number(document.getElementById('gp_qty').value);
       const pricePerGoat = Number(document.getElementById('gp_price_per_goat').value);
       const transport = Number(document.getElementById('gp_transport').value) || 0;
@@ -1325,7 +1419,10 @@ window.openNewGoatPurchaseModal = function() {
       const paid = Number(document.getElementById('gp_paid').value) || 0;
 
       await store.addGoatPurchase({
-        supplier_name: document.getElementById('gp_supplier').value.trim(),
+        supplier_id: (supplierId && supplierId !== supplierName) ? supplierId : null,
+        supplier_name: supplierName,
+        supplier_phone: supplierPhone,
+        supplier_city: supplierCity,
         purchase_date: document.getElementById('gp_date').value,
         purchase_method: document.getElementById('gp_method').value,
         quantity: qty,
@@ -1351,6 +1448,64 @@ window.openNewGoatPurchaseModal = function() {
       btn.disabled = false;
     }
   });
+};
+
+window.toggleGoatPurchaseNewSupplier = function(forceShow) {
+  const existingWrap = document.getElementById('gp_existing_sup_wrap');
+  const newWrap = document.getElementById('gp_new_sup_wrap');
+  const toggleBtn = document.getElementById('gp_toggle_new_sup_btn');
+  const select = document.getElementById('gp_supplier_select');
+  const nameInput = document.getElementById('gp_new_sup_name');
+  if (!existingWrap || !newWrap) return;
+
+  const showNew = (forceShow !== undefined) ? forceShow : (newWrap.style.display === 'none');
+
+  if (showNew) {
+    existingWrap.style.display = 'none';
+    newWrap.style.display = 'block';
+    if (toggleBtn) toggleBtn.innerHTML = '<span>← Choose Existing</span>';
+    if (select) select.removeAttribute('required');
+    if (nameInput) {
+      nameInput.setAttribute('required', 'required');
+      setTimeout(() => nameInput.focus(), 60);
+    }
+  } else {
+    newWrap.style.display = 'none';
+    existingWrap.style.display = 'block';
+    if (toggleBtn) toggleBtn.innerHTML = '<span>＋ Add New Supplier</span>';
+    if (nameInput) nameInput.removeAttribute('required');
+    if (select) {
+      select.setAttribute('required', 'required');
+      if (select.value === '__NEW__') select.value = '';
+      window.onGoatSupplierSelected(select);
+    }
+  }
+};
+
+window.onGoatSupplierSelected = function(selectEl) {
+  if (!selectEl) return;
+  const val = selectEl.value;
+  const badge = document.getElementById('gp_selected_sup_badge');
+
+  if (val === '__NEW__') {
+    window.toggleGoatPurchaseNewSupplier(true);
+    return;
+  }
+
+  if (!val) {
+    if (badge) badge.style.display = 'none';
+    return;
+  }
+
+  const opt = selectEl.options[selectEl.selectedIndex];
+  const name = opt?.getAttribute('data-name') || '';
+  const phone = opt?.getAttribute('data-phone') || '';
+  const city = opt?.getAttribute('data-city') || '';
+
+  if (badge) {
+    badge.innerHTML = `✓ Selected: <strong>${name}</strong>${city ? ` &bull; ${city}` : ''}${phone ? ` &bull; 📞 ${phone}` : ''}`;
+    badge.style.display = 'block';
+  }
 };
 
 window.calcGoatPurchaseTotals = function() {
