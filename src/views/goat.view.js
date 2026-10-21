@@ -1195,7 +1195,12 @@ window.openNewGoatPurchaseModal = function() {
   const modalTitle = document.getElementById('modalTitle');
   const modalBody = document.getElementById('modalBody');
   const commonModalOverlay = document.getElementById('commonModalOverlay');
+  const commonModalCard = document.getElementById('commonModalCard');
   if (!modalBody || !commonModalOverlay) return;
+
+  if (commonModalCard) {
+    commonModalCard.style.maxWidth = '780px';
+  }
 
   // Deduplicate and aggregate all known suppliers from contacts and past purchase records
   const supMap = new Map();
@@ -1225,50 +1230,67 @@ window.openNewGoatPurchaseModal = function() {
   modalTitle.textContent = 'Record Goat Purchase (Livestock Intake)';
   modalBody.innerHTML = `
     <form id="newGoatPurchaseForm">
-      <div class="form-grid-3">
-        <!-- Supplier / Breeder Selection -->
-        <div class="form-group" style="position:relative;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <label class="form-label" style="margin-bottom:0;">Supplier / Breeder <span style="color:#ef4444;">*</span></label>
-            <button type="button" id="gp_toggle_new_sup_btn" onclick="window.toggleGoatPurchaseNewSupplier()" style="background:none;border:none;color:#0d9488;font-size:0.78rem;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:4px;">
-              <span>＋ Add New Supplier</span>
+      <!-- Top Section: Dedicated Full-Width Supplier / Breeder Selector Card -->
+      <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-size:0.95rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">
+              <span>🧑‍🌾</span> <span>Supplier / Breeder Information</span> <span style="color:#ef4444;">*</span>
+            </div>
+            <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Select an existing supplier from your records or register a new seller</div>
+          </div>
+          <div style="display:inline-flex;background:#e2e8f0;border-radius:8px;padding:3px;gap:3px;">
+            <button type="button" id="gp_tab_existing_sup" onclick="window.setGoatSupplierMode('existing')" style="padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;border:none;background:#ffffff;color:#0f172a;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:all 0.15s ease;">
+              🧑‍🌾 Choose Existing (${suppliers.length})
             </button>
-          </div>
-
-          <!-- Existing Supplier Dropdown -->
-          <div id="gp_existing_sup_wrap">
-            <select id="gp_supplier_select" class="form-select" onchange="window.onGoatSupplierSelected(this)" required>
-              <option value="">-- Choose Existing Supplier --</option>
-              ${suppliers.map(s => `
-                <option value="${s.id || s.name}" data-name="${s.name}" data-phone="${s.phone || ''}" data-city="${s.city || ''}">
-                  🧑‍🌾 ${s.name} ${s.city ? `(${s.city})` : ''} ${s.phone ? `• ${s.phone}` : ''}
-                </option>
-              `).join('')}
-              <option value="__NEW__">➕ + Register New Supplier...</option>
-            </select>
-            <div id="gp_selected_sup_badge" style="display:none;margin-top:6px;font-size:0.78rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;"></div>
-          </div>
-
-          <!-- New Supplier Form (revealed when toggled or __NEW__ selected) -->
-          <div id="gp_new_sup_wrap" style="display:none;background:#f8fafc;border:1.5px dashed #94a3b8;border-radius:8px;padding:10px;margin-top:2px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:0.8rem;font-weight:700;color:#0f172a;">➕ New Supplier Details</span>
-              <button type="button" onclick="window.toggleGoatPurchaseNewSupplier(false)" style="background:none;border:none;color:#64748b;font-size:0.74rem;cursor:pointer;text-decoration:underline;">
-                ← Choose Existing
-              </button>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <input type="text" id="gp_new_sup_name" class="form-input" placeholder="Supplier / Breeder Name *" style="font-size:0.85rem;" autocomplete="off" />
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                <input type="tel" id="gp_new_sup_phone" class="form-input" placeholder="Phone Number (optional)" style="font-size:0.82rem;" />
-                <input type="text" id="gp_new_sup_city" class="form-input" placeholder="City / District (optional)" style="font-size:0.82rem;" />
-              </div>
-            </div>
+            <button type="button" id="gp_tab_new_sup" onclick="window.setGoatSupplierMode('new')" style="padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;border:none;background:transparent;color:#475569;transition:all 0.15s ease;">
+              ➕ Add New Supplier
+            </button>
           </div>
         </div>
 
+        <!-- Mode 1: Existing Supplier Dropdown -->
+        <div id="gp_existing_sup_wrap">
+          <select id="gp_supplier_select" class="form-select" style="font-size:0.92rem;padding:9px 12px;height:42px;width:100%;border:1.5px solid #94a3b8;background:#ffffff;" onchange="window.onGoatSupplierSelected(this)" required>
+            <option value="">-- Click here to select an existing supplier / breeder --</option>
+            ${suppliers.map(s => `
+              <option value="${s.id || s.name}" data-name="${s.name}" data-phone="${s.phone || ''}" data-city="${s.city || ''}">
+                🧑‍🌾 ${s.name} ${s.city ? `(${s.city})` : ''} ${s.phone ? `• 📞 ${s.phone}` : ''}
+              </option>
+            `).join('')}
+          </select>
+          <div id="gp_selected_sup_badge" style="display:none;margin-top:10px;font-size:0.85rem;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:8px;padding:8px 14px;"></div>
+        </div>
+
+        <!-- Mode 2: New Supplier Details Form -->
+        <div id="gp_new_sup_wrap" style="display:none;">
+          <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:0.8rem;font-weight:700;color:#1e293b;display:block;margin-bottom:5px;">
+                Supplier / Farm Name <span style="color:#ef4444;">*</span>
+              </label>
+              <input type="text" id="gp_new_sup_name" class="form-input" placeholder="e.g. Balaji Livestock Farms" style="font-size:0.9rem;padding:9px 12px;height:42px;width:100%;border:1.5px solid #94a3b8;" autocomplete="off" />
+            </div>
+            <div>
+              <label style="font-size:0.8rem;font-weight:700;color:#1e293b;display:block;margin-bottom:5px;">
+                Phone Number <span style="font-size:0.75rem;font-weight:400;color:#64748b;">(Optional)</span>
+              </label>
+              <input type="tel" id="gp_new_sup_phone" class="form-input" placeholder="e.g. +91 98480 12345" style="font-size:0.9rem;padding:9px 12px;height:42px;width:100%;border:1.5px solid #94a3b8;" />
+            </div>
+            <div>
+              <label style="font-size:0.8rem;font-weight:700;color:#1e293b;display:block;margin-bottom:5px;">
+                City / District <span style="font-size:0.75rem;font-weight:400;color:#64748b;">(Optional)</span>
+              </label>
+              <input type="text" id="gp_new_sup_city" class="form-input" placeholder="e.g. Warangal" style="font-size:0.9rem;padding:9px 12px;height:42px;width:100%;border:1.5px solid #94a3b8;" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Purchase Date & Method -->
+      <div class="form-grid-2" style="margin-bottom:14px;">
         <div class="form-group">
-          <label class="form-label">Purchase Date</label>
+          <label class="form-label">Purchase Date <span style="color:#ef4444;">*</span></label>
           <input type="date" id="gp_date" class="form-input" value="${store.getCurrentDate()}" required />
         </div>
         <div class="form-group">
@@ -1282,11 +1304,11 @@ window.openNewGoatPurchaseModal = function() {
 
       <div class="form-grid-3">
         <div class="form-group">
-          <label class="form-label">Number of Goats</label>
+          <label class="form-label">Number of Goats <span style="color:#ef4444;">*</span></label>
           <input type="number" id="gp_qty" class="form-input" value="10" min="1" step="1" required oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
-          <label class="form-label">Price per Goat (₹)</label>
+          <label class="form-label">Price per Goat (₹) <span style="color:#ef4444;">*</span></label>
           <input type="number" id="gp_price_per_goat" class="form-input" value="7000" min="0" required oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
@@ -1395,8 +1417,8 @@ window.openNewGoatPurchaseModal = function() {
         const opt = select?.options[select.selectedIndex];
         const val = select?.value;
 
-        if (!val || val === '__NEW__') {
-          alert('Please select an existing supplier or click "＋ Add New Supplier" to enter a new one.');
+        if (!val) {
+          alert('Please select an existing supplier or click "➕ Add New Supplier" to enter a new one.');
           select?.focus();
           btn.textContent = 'Confirm & Record Intake';
           btn.disabled = false;
@@ -1439,6 +1461,7 @@ window.openNewGoatPurchaseModal = function() {
         notes: document.getElementById('gp_notes').value.trim()
       });
 
+      if (commonModalCard) commonModalCard.style.maxWidth = '';
       window.closeModal();
       window.showToast?.('🐐 Goat purchase recorded and inventory updated!');
       renderGoatFarming();
@@ -1450,47 +1473,67 @@ window.openNewGoatPurchaseModal = function() {
   });
 };
 
-window.toggleGoatPurchaseNewSupplier = function(forceShow) {
+window.setGoatSupplierMode = function(mode) {
   const existingWrap = document.getElementById('gp_existing_sup_wrap');
   const newWrap = document.getElementById('gp_new_sup_wrap');
-  const toggleBtn = document.getElementById('gp_toggle_new_sup_btn');
+  const tabExisting = document.getElementById('gp_tab_existing_sup');
+  const tabNew = document.getElementById('gp_tab_new_sup');
   const select = document.getElementById('gp_supplier_select');
   const nameInput = document.getElementById('gp_new_sup_name');
-  if (!existingWrap || !newWrap) return;
 
-  const showNew = (forceShow !== undefined) ? forceShow : (newWrap.style.display === 'none');
+  if (mode === 'new') {
+    if (existingWrap) existingWrap.style.display = 'none';
+    if (newWrap) newWrap.style.display = 'block';
 
-  if (showNew) {
-    existingWrap.style.display = 'none';
-    newWrap.style.display = 'block';
-    if (toggleBtn) toggleBtn.innerHTML = '<span>← Choose Existing</span>';
+    if (tabExisting) {
+      tabExisting.style.background = 'transparent';
+      tabExisting.style.color = '#475569';
+      tabExisting.style.boxShadow = 'none';
+    }
+    if (tabNew) {
+      tabNew.style.background = '#ffffff';
+      tabNew.style.color = '#0f172a';
+      tabNew.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+    }
+
     if (select) select.removeAttribute('required');
     if (nameInput) {
       nameInput.setAttribute('required', 'required');
-      setTimeout(() => nameInput.focus(), 60);
+      setTimeout(() => nameInput.focus(), 50);
     }
   } else {
-    newWrap.style.display = 'none';
-    existingWrap.style.display = 'block';
-    if (toggleBtn) toggleBtn.innerHTML = '<span>＋ Add New Supplier</span>';
+    if (newWrap) newWrap.style.display = 'none';
+    if (existingWrap) existingWrap.style.display = 'block';
+
+    if (tabNew) {
+      tabNew.style.background = 'transparent';
+      tabNew.style.color = '#475569';
+      tabNew.style.boxShadow = 'none';
+    }
+    if (tabExisting) {
+      tabExisting.style.background = '#ffffff';
+      tabExisting.style.color = '#0f172a';
+      tabExisting.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+    }
+
     if (nameInput) nameInput.removeAttribute('required');
     if (select) {
       select.setAttribute('required', 'required');
-      if (select.value === '__NEW__') select.value = '';
       window.onGoatSupplierSelected(select);
     }
   }
+};
+
+window.toggleGoatPurchaseNewSupplier = function(forceShow) {
+  const newWrap = document.getElementById('gp_new_sup_wrap');
+  const showNew = (forceShow !== undefined) ? forceShow : (newWrap?.style.display === 'none');
+  window.setGoatSupplierMode(showNew ? 'new' : 'existing');
 };
 
 window.onGoatSupplierSelected = function(selectEl) {
   if (!selectEl) return;
   const val = selectEl.value;
   const badge = document.getElementById('gp_selected_sup_badge');
-
-  if (val === '__NEW__') {
-    window.toggleGoatPurchaseNewSupplier(true);
-    return;
-  }
 
   if (!val) {
     if (badge) badge.style.display = 'none';

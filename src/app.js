@@ -3762,7 +3762,10 @@ function openModal(isWide = false) {
 }
 function closeModal() {
   commonModalOverlay.classList.remove('open');
-  if (commonModalCard) commonModalCard.classList.remove('modal-lg');
+  if (commonModalCard) {
+    commonModalCard.classList.remove('modal-lg');
+    commonModalCard.style.maxWidth = '';
+  }
 }
 
 // Global helpers for inline HTML onclick handlers
