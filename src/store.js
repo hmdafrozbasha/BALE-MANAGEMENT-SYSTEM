@@ -12,7 +12,7 @@ import {
 import {
   goatDashboardService, goatSuppliersService, goatCustomersService,
   goatPurchasesService, goatGroupsService, goatsService,
-  goatSalesService, goatExpensesService
+  goatSalesService, goatExpensesService, goatResetService
 } from './services/goat.service.js';
 
 const CACHE_KEY = 'bms_store_cache';
@@ -1548,6 +1548,105 @@ class Store {
     this.notify();
     return true;
   }
+
+  async resetGoatData(options = {}) {
+    if (!this.canDelete()) {
+      throw new Error('Access denied. Only the Owner can reset system data.');
+    }
+
+    const sel = {
+      goats: true,
+      purchases: true,
+      sales: true,
+      expenses: true,
+      contacts: true,
+      sequences: true,
+      ...options
+    };
+
+    if (sel.contacts) {
+      sel.sales = true;
+      sel.purchases = true;
+    }
+
+    const del = async (table) => {
+      try {
+        const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) console.warn(`Reset delete ${table}:`, error.message);
+      } catch(e) { console.warn(`Reset delete ${table} threw:`, e.message); }
+    };
+
+    // 1. Try SQL RPC first
+    let rpcOk = false;
+    try {
+      const res = await goatResetService.resetGoatData(sel);
+      if (res?.success) rpcOk = true;
+    } catch(e) {
+      console.warn('reset_goat_data RPC failed, running direct deletes:', e.message);
+    }
+
+    if (!rpcOk) {
+      // Fallback: direct table deletes in FK order
+      if (sel.sales) {
+        await del('goat_customer_payments');
+        await del('goat_sale_items');
+        await del('goat_sales');
+      }
+      if (sel.expenses) {
+        await del('goat_expenses');
+      }
+      if (sel.goats) {
+        await del('goat_health_records');
+        await del('goat_weight_records');
+        await del('goats');
+        await del('goat_groups');
+      }
+      if (sel.purchases) {
+        await del('goat_supplier_payments');
+        await del('goat_purchases');
+      }
+      if (sel.contacts) {
+        await del('goat_customers');
+        await del('goat_suppliers');
+      }
+    }
+
+    // 2. Clear cache
+    this._clearCache();
+
+    // 3. Clear in-memory goat state for selected categories
+    if (sel.goats) {
+      this.data.goats = [];
+      this.data.goatGroups = [];
+      this.data.goatHealthRecords = [];
+      this.data.goatWeightRecords = [];
+    }
+    if (sel.purchases) {
+      this.data.goatPurchases = [];
+      this.data.goatSupplierPayments = [];
+    }
+    if (sel.sales) {
+      this.data.goatSales = [];
+      this.data.goatCustomerPayments = [];
+    }
+    if (sel.expenses) {
+      this.data.goatExpenses = [];
+    }
+    if (sel.contacts) {
+      this.data.goatSuppliers = [];
+      this.data.goatCustomers = [];
+    }
+
+    // 4. Notify immediately
+    this.notify();
+
+    // 5. Reload from Supabase
+    try { await this.loadAll(); } catch(e) { console.warn('Post-goat-reset reload:', e.message); }
+
+    this.notify();
+    return true;
+  }
+
 
   // ─────────────────────────────────────────────────────────────────
   // GOAT FARMING & TRADING METHODS (Strictly Isolated Business Logic)

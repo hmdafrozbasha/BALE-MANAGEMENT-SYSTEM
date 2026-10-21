@@ -3501,11 +3501,16 @@ function renderSettings() {
               <span style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700;">Danger Zone</span>
             </div>
             <p style="font-size:0.83rem;color:#7f1d1d;margin:12px 0 14px 0;line-height:1.45;">
-              Selectively clear purchases, batches, invoices, expenses, yard plots, or perform a complete wipe.
+              Selectively clear Bale Management operational data or Goat Farming livestock records, or perform modular wipes.
             </p>
-            <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#dc2626;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.25);" onclick="window.confirmResetEverything()">
-              💣 Reset System Data…
-            </button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#dc2626;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(220,38,38,0.25);" onclick="window.confirmResetEverything()">
+                🌾 Reset Bale Data…
+              </button>
+              <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#b91c1c;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(185,28,28,0.25);" onclick="window.confirmResetGoatData()">
+                🐐 Reset Goat Data…
+              </button>
+            </div>
           </div>
 
         </div>
@@ -3883,6 +3888,124 @@ window.confirmResetEverything = function() {
 };
 
 window.confirmResetData = window.confirmResetEverything;
+
+window.confirmResetGoatData = function() {
+  if (!store.canDelete()) {
+    showToast('Access denied. Only the Owner can reset data.', 'error');
+    return;
+  }
+
+  modalTitle.textContent = '🐐 Reset Goat Farming Data';
+  modalBody.id = 'resetGoatModal';
+  modalBody.innerHTML = `
+    <div style="padding:4px 0;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;background:#fff1f2;padding:12px;border-radius:10px;border:1px solid #fecdd3;">
+        <span style="font-size:2rem;line-height:1;">💣</span>
+        <div>
+          <div style="font-size:0.95rem;font-weight:700;color:#9f1239;">Select Goat Farming data to permanently delete:</div>
+          <div style="font-size:0.78rem;color:#be123c;">Bale management data and plots will remain completely untouched.</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_herd" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">🐐 Herd &amp; Groups</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">All goats, batches, health &amp; weights</div>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_sales" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">💼 Sales &amp; Invoices</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">Invoices, items &amp; customer payments</div>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_purchases" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">🛒 Purchases &amp; Inward</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">Purchases &amp; supplier payment ledgers</div>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_expenses" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">💸 Farm Expenses</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">Feed, vet, labour, transport &amp; shelter</div>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_contacts" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">👥 Suppliers &amp; Customers</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">Goat supplier &amp; buyer directories</div>
+          </span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 12px;cursor:pointer;">
+          <input type="checkbox" id="rst_goat_sequences" checked style="width:16px;height:16px;accent-color:#dc2626;">
+          <span>
+            <div style="font-weight:700;font-size:0.88rem;color:#7f1d1d;">🔢 Reset ID Sequences</div>
+            <div style="font-size:0.75rem;color:#b91c1c;">Restart GT-101, GRP-001, REF-0001</div>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" onclick="document.querySelectorAll('#resetGoatModal input[type=checkbox]').forEach(c=>c.checked=true)" style="font-size:0.78rem;padding:4px 10px;border-radius:6px;background:rgba(220,38,38,0.1);color:#991b1b;border:1px solid #fca5a5;cursor:pointer;">Select All</button>
+        <button type="button" onclick="document.querySelectorAll('#resetGoatModal input[type=checkbox]').forEach(c=>c.checked=false)" style="font-size:0.78rem;padding:4px 10px;border-radius:6px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;cursor:pointer;">Deselect All</button>
+      </div>
+      <div id="resetGoatError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;font-size:0.85rem;margin-bottom:10px;"></div>
+      <div style="font-size:0.8rem;color:#6b7280;margin-bottom:14px;">⚠️ This action is <strong>permanent</strong> and cannot be undone.</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" id="doResetGoatBtn" class="btn-danger" style="background:#dc2626;padding:10px 22px;font-weight:700;">💣 Reset Selected Goat Data</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('doResetGoatBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doResetGoatBtn');
+    const errDiv = document.getElementById('resetGoatError');
+    const options = {
+      goats:     document.getElementById('rst_goat_herd')?.checked ?? true,
+      sales:     document.getElementById('rst_goat_sales')?.checked ?? true,
+      purchases: document.getElementById('rst_goat_purchases')?.checked ?? true,
+      expenses:  document.getElementById('rst_goat_expenses')?.checked ?? true,
+      contacts:  document.getElementById('rst_goat_contacts')?.checked ?? true,
+      sequences: document.getElementById('rst_goat_sequences')?.checked ?? true,
+    };
+
+    if (!Object.values(options).some(Boolean)) {
+      errDiv.textContent = 'Please select at least one category to reset.';
+      errDiv.style.display = 'block';
+      return;
+    }
+
+    btn.textContent = 'Wiping...';
+    btn.disabled = true;
+    errDiv.style.display = 'none';
+    try {
+      showLoading('Wiping selected goat data...');
+      await store.resetGoatData(options);
+      hideLoading();
+      modalBody.id = '';
+      closeModal();
+      if (typeof window.renderGoatFarming === 'function' && currentTab === 'goat-farming') {
+        window.renderGoatFarming();
+      }
+      showToast('Goat farming data wiped successfully.', 'info');
+    } catch (err) {
+      hideLoading();
+      errDiv.textContent = err.message || 'Error resetting goat data.';
+      errDiv.style.display = 'block';
+      btn.textContent = '💣 Reset Selected Goat Data';
+      btn.disabled = false;
+    }
+  });
+
+  openModal();
+};
+
 
 // CSS for spinner
 const style = document.createElement('style');

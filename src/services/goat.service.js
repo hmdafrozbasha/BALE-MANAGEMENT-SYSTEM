@@ -512,3 +512,16 @@ export const goatExpensesService = {
     return { success: true };
   }
 };
+
+// ─────────────────────────────────────────────────────────────────
+// GOAT RESET SERVICE
+// ─────────────────────────────────────────────────────────────────
+export const goatResetService = {
+  async resetGoatData(options = {}) {
+    const { data, error } = await supabase.rpc('reset_goat_data', { p_options: options });
+    if (!error && data?.success) return data;
+    if (error) throw error;
+    return { success: true };
+  }
+};
+

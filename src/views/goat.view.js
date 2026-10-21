@@ -153,6 +153,7 @@ function renderGoatDashboard(container) {
         <button class="btn-primary" onclick="window.openNewGoatPurchaseModal()">＋ Purchase Goats</button>
         ${isFinance ? `<button class="btn-primary" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="window.openNewGoatSaleModal()">＋ Sell Goats</button>` : ''}
         ${isFinance ? `<button class="btn-secondary" onclick="window.openNewGoatExpenseModal()">＋ Add Expense</button>` : ''}
+        ${store.canDelete() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
       </div>
     </div>
 
@@ -989,9 +990,10 @@ function renderGoatReports(container) {
         <h2 style="font-size:1.3rem;font-weight:800;color:var(--text-dark-primary);margin:0;font-family:var(--font-heading);">Goat Financial & Operating Reports</h2>
         <div style="font-size:0.85rem;color:var(--text-sub);">Profit & Loss Statement, Inventory Valuation, and Cost-of-Goods-Sold (strictly segregated).</div>
       </div>
-      <div style="display:flex;gap:10px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <button class="btn-secondary" onclick="window.exportGoatExcelReport()">📥 Export to Excel</button>
         <button class="btn-primary" onclick="window.printGoatReport()">🖨 Print P&L Statement</button>
+        ${store.canDelete() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
       </div>
     </div>
 
