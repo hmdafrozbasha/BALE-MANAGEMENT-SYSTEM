@@ -1126,9 +1126,36 @@ export const reportsService = {
 // ─────────────────────────────────────────────────────────────────
 export const profilesService = {
   async getAll() {
+    // Attempt admin_get_users RPC first to fetch emails from auth.users
+    try {
+      const { data, error } = await supabase.rpc('admin_get_users');
+      if (!error && data && Array.isArray(data)) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('admin_get_users RPC fallback to profiles table:', e.message);
+    }
     const { data, error } = await supabase.from('profiles').select('*').order('full_name');
     if (error) throw error;
     return data || [];
+  },
+
+  async setPassword(userId, newPassword) {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+    const { data, error } = await supabase.rpc('admin_set_user_password', {
+      target_user_id: userId,
+      new_password: newPassword
+    });
+    if (error) {
+      // Check if function is missing in database
+      if (error.message?.includes('function') || error.code === '42883') {
+        throw new Error('Database RPC function not installed yet. Please run migration 005_owner_manage_passwords.sql in Supabase SQL Editor.');
+      }
+      throw error;
+    }
+    return data;
   },
 
   async updateRole(userId, role) {

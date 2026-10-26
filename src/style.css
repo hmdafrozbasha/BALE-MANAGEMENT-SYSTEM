@@ -2866,3 +2866,142 @@ body {
 .kpi-card.loss-kpi .kpi-value  { color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 .kpi-card.loss-kpi .kpi-subtext { color: #FCA5A5; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   NAPIER MANAGEMENT MODULE — EMERALD LIQUID GLASS STYLES
+   ═══════════════════════════════════════════════════════════════════ */
+.napier-subnav-container {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  background: rgba(11, 48, 36, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  scrollbar-width: none;
+}
+.napier-subnav-container::-webkit-scrollbar {
+  display: none;
+}
+
+.napier-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #B5C9BE;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  outline: none;
+  user-select: none;
+}
+
+@media (hover: hover) {
+  .napier-subnav-btn:hover:not(.active) {
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}
+
+.napier-subnav-btn.active {
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  border-color: rgba(183, 243, 107, 0.5) !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+}
+
+.napier-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.napier-plot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.napier-plot-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.napier-plot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.napier-badge-ready {
+  background: #DDFCE8;
+  color: #065F46;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+}
+
+.napier-badge-growing {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+}
+
+.napier-badge-preparing {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+}
+
+.napier-badge-inactive {
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+}
+
+.napier-stock-banner {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.9) 0%, rgba(4, 47, 46, 0.95) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  color: #FFFFFF;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.35);
+}
+
+

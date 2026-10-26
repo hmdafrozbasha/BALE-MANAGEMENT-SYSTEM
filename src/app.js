@@ -2,6 +2,8 @@ import { store } from './store.js';
 import { attachmentsService, reportsService, salesService, purchasesService, batchesService, customersService, suppliersService } from './services/data.service.js';
 import * as XLSX from 'xlsx';
 import { renderGoatFarming } from './views/goat.view.js';
+import { renderNapierManagement } from './views/napier.view.js';
+window.renderNapierManagement = renderNapierManagement;
 
 // Application State
 let currentTab = 'dashboard';
@@ -423,6 +425,10 @@ async function render() {
     case 'goat-farming':
       pageTitle.textContent = '🐐 Goat Farming & Trading';
       renderGoatFarming();
+      break;
+    case 'napier-management':
+      pageTitle.textContent = '🌱 Napier Management';
+      renderNapierManagement();
       break;
     default: await renderDashboard();
   }
@@ -3492,6 +3498,40 @@ function renderSettings() {
             </div>
           </div>
 
+          <!-- Card: Team Accounts & Password Management (Owner Only) -->
+          ${isOwner ? `
+          <div class="section-box" style="margin:0;border:1.5px solid #cbd5e1;background:#ffffff;">
+            <div class="section-box-header" style="border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div class="box-title" style="color:#0f172a;display:flex;align-items:center;gap:8px;">
+                <span>👥</span> <span>Team Accounts & Passwords</span>
+              </div>
+              <span style="font-size:0.75rem;padding:3px 10px;border-radius:9999px;background:#ecfdf5;color:#047857;font-weight:700;border:1px solid #a7f3d0;">
+                👑 Owner Access
+              </span>
+            </div>
+            <p style="font-size:0.83rem;color:#64748b;margin:12px 0 14px 0;line-height:1.45;">
+              Accountant and Staff users are registered in Supabase. You can change their login passwords or manage their active status directly from here.
+            </p>
+
+            <!-- Container for async loaded accounts -->
+            <div id="teamAccountsContainer">
+              <div style="text-align:center;padding:24px 12px;color:#94a3b8;font-size:0.85rem;">
+                <span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid #047857;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>
+                Loading team accounts from database…
+              </div>
+            </div>
+
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <span style="font-size:0.76rem;color:#94a3b8;">
+                ℹ️ Create new user logins in Supabase Auth Dashboard
+              </span>
+              <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:0.78rem;font-weight:700;" onclick="window.loadTeamAccountsList()">
+                🔄 Refresh Accounts
+              </button>
+            </div>
+          </div>
+          ` : ''}
+
           <!-- Card 5: Danger Zone (Selective Reset) -->
           <div class="section-box" style="margin:0;border:1.5px solid #fca5a5;background:#fff8f8;">
             <div class="section-box-header" style="border-bottom:1px solid #fee2e2;display:flex;justify-content:space-between;align-items:center;">
@@ -3509,6 +3549,9 @@ function renderSettings() {
               </button>
               <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#b91c1c;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(185,28,28,0.25);" onclick="window.confirmResetGoatData()">
                 🐐 Reset Goat Data…
+              </button>
+              <button type="button" class="btn-danger" style="padding:9px 18px;font-weight:700;font-size:0.86rem;background:#065f46;color:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(6,95,70,0.25);" onclick="window.confirmResetNapierData()">
+                🌱 Reset Napier Data…
               </button>
             </div>
           </div>
@@ -3558,7 +3601,254 @@ function renderSettings() {
     }
     btn.textContent = '＋ Add Plot'; btn.disabled = false;
   });
+
+  // Asynchronously load team accounts for the Owner
+  if (isOwner) {
+    window.loadTeamAccountsList();
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// OWNER: TEAM ACCOUNTS & PASSWORD MANAGEMENT
+// ─────────────────────────────────────────────────────────────────
+window.loadTeamAccountsList = async function() {
+  const container = document.getElementById('teamAccountsContainer');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="text-align:center;padding:20px;color:#64748b;font-size:0.85rem;">
+      <span style="display:inline-block;width:18px;height:18px;border:2px solid #047857;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle;"></span>
+      Loading team accounts…
+    </div>
+  `;
+
+  try {
+    const accounts = await store.getTeamAccounts();
+    if (!accounts || accounts.length === 0) {
+      container.innerHTML = `
+        <div style="padding:16px;text-align:center;background:#f8fafc;border-radius:8px;color:#64748b;font-size:0.85rem;border:1px dashed #cbd5e1;">
+          No staff or accountant profiles found yet.<br>
+          <small style="color:#94a3b8;">Create users in Supabase Auth, and their profiles will sync automatically.</small>
+        </div>
+      `;
+      return;
+    }
+
+    const currentUserId = store.currentUser?.id;
+
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${accounts.map(acc => {
+          const role = (acc.role || 'staff').toLowerCase();
+          const isCurrentUser = acc.id === currentUserId;
+          const roleLabel = role === 'owner' ? 'Owner' : role === 'accountant' ? 'Accountant' : 'Staff';
+          const roleIcon = role === 'owner' ? '👑' : role === 'accountant' ? '💼' : '👷';
+          const roleBadgeBg = role === 'owner' ? '#ecfdf5' : role === 'accountant' ? '#eff6ff' : '#fef3c7';
+          const roleBadgeColor = role === 'owner' ? '#047857' : role === 'accountant' ? '#1d4ed8' : '#b45309';
+          const roleBadgeBorder = role === 'owner' ? '#a7f3d0' : role === 'accountant' ? '#bfdbfe' : '#fde68a';
+          const avatarBg = role === 'owner' ? '#047857' : role === 'accountant' ? '#2563eb' : '#d97706';
+          const initial = (acc.full_name || acc.email || 'U')[0].toUpperCase();
+          const isActive = acc.is_active !== false;
+
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;flex-wrap:wrap;gap:12px;">
+              <div style="display:flex;align-items:center;gap:12px;min-width:210px;">
+                <div style="width:38px;height:38px;border-radius:50%;background:${avatarBg};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                  ${initial}
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:0.9rem;color:#0f172a;display:flex;align-items:center;gap:6px;">
+                    <span>${acc.full_name || (roleLabel + ' User')}</span>
+                    ${isCurrentUser ? '<span style="font-size:0.68rem;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:#334155;font-weight:600;">You</span>' : ''}
+                  </div>
+                  <div style="font-size:0.78rem;color:#64748b;font-family:monospace;">${acc.email || '<span style="color:#94a3b8;font-style:italic;">Email via Auth</span>'}</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:9999px;background:${roleBadgeBg};color:${roleBadgeColor};border:1px solid ${roleBadgeBorder};">
+                  ${roleIcon} ${roleLabel}
+                </span>
+
+                <span style="font-size:0.74rem;font-weight:600;padding:3px 8px;border-radius:6px;background:${isActive ? '#dcfce7' : '#fee2e2'};color:${isActive ? '#15803d' : '#991b1b'};">
+                  ${isActive ? '● Active' : '○ Inactive'}
+                </span>
+
+                <button type="button" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;font-weight:700;background:#047857;color:#fff;border-radius:6px;box-shadow:0 1px 2px rgba(4,120,87,0.2);display:inline-flex;align-items:center;gap:5px;" onclick="window.openChangePasswordModal('${acc.id}', '${encodeURIComponent(acc.full_name || '')}', '${encodeURIComponent(acc.email || '')}', '${roleLabel}')">
+                  🔑 Change Password
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch(err) {
+    console.error('Error loading team accounts:', err);
+    const isRpcMissing = err.message?.includes('RPC') || err.message?.includes('admin_get_users') || err.message?.includes('function');
+    container.innerHTML = `
+      <div style="padding:14px;background:#fff8f8;border:1px solid #fecaca;border-radius:8px;font-size:0.84rem;color:#991b1b;">
+        <div style="font-weight:700;margin-bottom:4px;">⚠️ Unable to load accounts</div>
+        <p style="margin:0 0 8px 0;line-height:1.4;">${err.message}</p>
+        ${isRpcMissing ? `
+          <div style="background:#fff;border:1px solid #fee2e2;border-radius:6px;padding:8px 10px;font-size:0.78rem;color:#7f1d1d;">
+            💡 <strong>Action Required:</strong> Run migration script <code>supabase/migrations/005_owner_manage_passwords.sql</code> in your Supabase SQL Editor to grant password administration permissions.
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+};
+
+window.openChangePasswordModal = function(userId, encodedName, encodedEmail, roleLabel) {
+  const fullName = decodeURIComponent(encodedName || '') || (roleLabel + ' User');
+  const email = decodeURIComponent(encodedEmail || '');
+
+  document.getElementById('bmsChangePasswordModal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'bmsChangePasswordModal';
+  modal.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  `;
+
+  modal.innerHTML = `
+    <div style="background:#ffffff;border-radius:14px;max-width:480px;width:100%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);overflow:hidden;border:1px solid #cbd5e1;">
+      
+      <!-- Modal Header -->
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.25rem;">🔑</span>
+          <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;">Change Account Password</h3>
+        </div>
+        <button type="button" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;padding:4px 8px;border-radius:6px;line-height:1;" onclick="document.getElementById('bmsChangePasswordModal')?.remove()">
+          ✕
+        </button>
+      </div>
+
+      <!-- Target User Info Card -->
+      <div style="padding:14px 20px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">${fullName}</div>
+          <div style="font-size:0.8rem;color:#64748b;font-family:monospace;">${email || 'Login linked via Supabase Auth'}</div>
+        </div>
+        <span style="font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:9999px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">
+          ${roleLabel}
+        </span>
+      </div>
+
+      <!-- Modal Body / Form -->
+      <form id="adminChangePasswordForm" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-weight:700;font-size:0.85rem;color:#334155;">New Password</label>
+          <div style="position:relative;">
+            <input type="password" id="adminNewPassword" class="form-input" placeholder="Enter new password (min. 6 chars)" minlength="6" required style="padding-right:40px;width:100%;" autocomplete="new-password" />
+            <button type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:1rem;padding:4px;" onclick="window.togglePwdVisibility('adminNewPassword', this)" title="Show/Hide Password">
+              👁️
+            </button>
+          </div>
+          <small style="color:#64748b;font-size:0.75rem;margin-top:4px;display:block;">Must be at least 6 characters long.</small>
+        </div>
+
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-weight:700;font-size:0.85rem;color:#334155;">Confirm New Password</label>
+          <div style="position:relative;">
+            <input type="password" id="adminConfirmPassword" class="form-input" placeholder="Re-type new password" minlength="6" required style="padding-right:40px;width:100%;" autocomplete="new-password" />
+            <button type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:1rem;padding:4px;" onclick="window.togglePwdVisibility('adminConfirmPassword', this)" title="Show/Hide Password">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <!-- Alert messages -->
+        <div id="adminPasswordError" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:10px 12px;border-radius:8px;font-size:0.82rem;line-height:1.4;"></div>
+        <div id="adminPasswordSuccess" style="display:none;background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 12px;border-radius:8px;font-size:0.82rem;font-weight:700;line-height:1.4;"></div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;padding-top:12px;border-top:1px solid #f1f5f9;">
+          <button type="button" class="btn-secondary" style="padding:8px 16px;font-size:0.85rem;font-weight:600;" onclick="document.getElementById('bmsChangePasswordModal')?.remove()">
+            Cancel
+          </button>
+          <button type="submit" id="adminSubmitPasswordBtn" class="btn-primary" style="padding:8px 20px;font-size:0.85rem;font-weight:700;background:#047857;color:#fff;">
+            Save Password
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close on backdrop click or escape
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  // Handle Form Submit
+  const form = document.getElementById('adminChangePasswordForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPwd = document.getElementById('adminNewPassword').value;
+    const confirmPwd = document.getElementById('adminConfirmPassword').value;
+    const errorBox = document.getElementById('adminPasswordError');
+    const successBox = document.getElementById('adminPasswordSuccess');
+    const submitBtn = document.getElementById('adminSubmitPasswordBtn');
+
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+
+    if (!newPwd || newPwd.length < 6) {
+      errorBox.textContent = 'Password must be at least 6 characters.';
+      errorBox.style.display = 'block';
+      return;
+    }
+
+    if (newPwd !== confirmPwd) {
+      errorBox.textContent = 'Passwords do not match. Please verify.';
+      errorBox.style.display = 'block';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating…';
+
+    try {
+      await store.changeUserPassword(userId, newPwd);
+      successBox.textContent = `✅ Password for ${fullName} updated successfully!`;
+      successBox.style.display = 'block';
+      showToast(`Password updated for ${fullName}`);
+
+      setTimeout(() => {
+        modal.remove();
+      }, 1200);
+    } catch(err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Password';
+      errorBox.textContent = err.message || 'Failed to update password.';
+      errorBox.style.display = 'block';
+    }
+  });
+};
+
+window.togglePwdVisibility = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────
 // MISC
@@ -3751,6 +4041,18 @@ function handleQuickAction(action) {
     case 'new-goat-expense':
       navigateTo('goat-farming');
       setTimeout(() => window.openNewGoatExpenseModal?.(), 250);
+      break;
+    case 'new-napier-harvest':
+      navigateTo('napier-management');
+      setTimeout(() => window.openNewNapierHarvestModal?.(), 250);
+      break;
+    case 'new-napier-sale':
+      navigateTo('napier-management');
+      setTimeout(() => window.openNewNapierSaleModal?.(), 250);
+      break;
+    case 'new-napier-expense':
+      navigateTo('napier-management');
+      setTimeout(() => window.openNewNapierExpenseModal?.(), 250);
       break;
   }
 }
@@ -4002,6 +4304,112 @@ window.confirmResetGoatData = function() {
       errDiv.textContent = err.message || 'Error resetting goat data.';
       errDiv.style.display = 'block';
       btn.textContent = '💣 Reset Selected Goat Data';
+      btn.disabled = false;
+    }
+  });
+
+  openModal();
+};
+
+window.confirmResetNapierData = function() {
+  if (!store.isOwner()) {
+    showToast('Only the Owner account can perform data wipes.', 'error');
+    return;
+  }
+
+  modalTitle.textContent = '🌱 Reset Napier Management Data';
+  modalBody.id = 'resetNapierModal';
+  modalBody.innerHTML = `
+    <div style="padding:10px 4px;">
+      <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:0.95rem;font-weight:700;color:#9f1239;">Select Napier Management data to permanently wipe:</div>
+        <div style="font-size:0.8rem;color:#b91c1c;margin-top:4px;">
+          This will NOT touch Bale Management or Goat Farming data.
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+          <input type="checkbox" id="rst_napier_harvests" checked style="width:16px;height:16px;accent-color:#059669;margin-top:2px;">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:#0f172a;">Production Harvests & Stock Additions</div>
+            <div style="font-size:0.75rem;color:#64748b;">All cut yield records and related positive stock movements</div>
+          </div>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+          <input type="checkbox" id="rst_napier_sales" checked style="width:16px;height:16px;accent-color:#059669;margin-top:2px;">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:#0f172a;">Sales Invoices & Payments</div>
+            <div style="font-size:0.75rem;color:#64748b;">All customer invoices, payment receipts, and sales ledger deductions</div>
+          </div>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+          <input type="checkbox" id="rst_napier_expenses" checked style="width:16px;height:16px;accent-color:#059669;margin-top:2px;">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:#0f172a;">Operating Expenses</div>
+            <div style="font-size:0.75rem;color:#64748b;">All fertilizer, labour, and maintenance expense vouchers</div>
+          </div>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+          <input type="checkbox" id="rst_napier_stock" checked style="width:16px;height:16px;accent-color:#059669;margin-top:2px;">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:#0f172a;">Stock Adjustments & Wastage Ledger</div>
+            <div style="font-size:0.75rem;color:#64748b;">All drying losses, spoilage, and manual adjustments</div>
+          </div>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+          <input type="checkbox" id="rst_napier_plots" style="width:16px;height:16px;accent-color:#059669;margin-top:2px;">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:#0f172a;">Cultivation Plots Directory</div>
+            <div style="font-size:0.75rem;color:#64748b;">Wipe registered plot cards (leave unchecked to keep your plot definitions)</div>
+          </div>
+        </label>
+      </div>
+
+      <div id="resetNapierError" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:10px;font-size:0.82rem;margin-bottom:12px;"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button type="button" class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+        <button type="button" id="doResetNapierBtn" class="btn-danger" style="background:#065f46;padding:10px 18px;font-weight:700;">
+          🌱 Reset Selected Napier Data
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('doResetNapierBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('doResetNapierBtn');
+    const errDiv = document.getElementById('resetNapierError');
+    const options = {
+      harvests:  document.getElementById('rst_napier_harvests')?.checked ?? true,
+      sales:     document.getElementById('rst_napier_sales')?.checked ?? true,
+      expenses:  document.getElementById('rst_napier_expenses')?.checked ?? true,
+      stock:     document.getElementById('rst_napier_stock')?.checked ?? true,
+      plots:     document.getElementById('rst_napier_plots')?.checked ?? false
+    };
+
+    btn.textContent = 'Wiping…';
+    btn.disabled = true;
+    errDiv.style.display = 'none';
+    try {
+      showLoading('Wiping selected Napier data...');
+      await store.resetNapierData(options);
+      hideLoading();
+      modalBody.id = '';
+      closeModal();
+      if (typeof window.renderNapierManagement === 'function' && currentTab === 'napier-management') {
+        window.renderNapierManagement();
+      }
+      showToast('Napier data wiped successfully.', 'info');
+    } catch (err) {
+      hideLoading();
+      errDiv.textContent = err.message || 'Error resetting Napier data.';
+      errDiv.style.display = 'block';
+      btn.textContent = '🌱 Reset Selected Napier Data';
       btn.disabled = false;
     }
   });

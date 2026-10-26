@@ -14,6 +14,11 @@ import {
   goatPurchasesService, goatGroupsService, goatsService,
   goatSalesService, goatExpensesService, goatResetService
 } from './services/goat.service.js';
+import {
+  napierDashboardService, napierPlotsService, napierCustomersService,
+  napierHarvestsService, napierStockService, napierSalesService,
+  napierExpensesService, napierPaymentsService
+} from './services/napier.service.js';
 
 const CACHE_KEY = 'bms_store_cache';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -53,7 +58,16 @@ class Store {
         goatWeightRecords: this.data.goatWeightRecords || [],
         goatHealthRecords: this.data.goatHealthRecords || [],
         goatSupplierPayments: this.data.goatSupplierPayments || [],
-        goatCustomerPayments: this.data.goatCustomerPayments || []
+        goatCustomerPayments: this.data.goatCustomerPayments || [],
+        // Strictly isolated Napier Management module records
+        napierPlots: this.data.napierPlots || [],
+        napierCustomers: this.data.napierCustomers || [],
+        napierHarvests: this.data.napierHarvests || [],
+        napierStockMovements: this.data.napierStockMovements || [],
+        napierSales: this.data.napierSales || [],
+        napierExpenses: this.data.napierExpenses || [],
+        napierPayments: this.data.napierPayments || [],
+        napierStockAdjustments: this.data.napierStockAdjustments || []
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
     } catch(e) { /* quota exceeded — ignore */ }
@@ -193,6 +207,16 @@ class Store {
           goatPurchasesService.getAll().catch(() => null),
           goatSalesService.getAll().catch(() => null),
           goatExpensesService.getAll().catch(() => null)
+        ] : []),
+        // Parallel Napier Data fetches (strictly independent)
+        napierPlotsService.getAll().catch(() => null),
+        napierHarvestsService.getAll().catch(() => null),
+        napierStockService.getMovements().catch(() => null),
+        ...(isFinance ? [
+          napierCustomersService.getAll().catch(() => null),
+          napierSalesService.getAll().catch(() => null),
+          napierExpensesService.getAll().catch(() => null),
+          napierPaymentsService.getAll().catch(() => null)
         ] : [])
       ];
 
@@ -291,6 +315,36 @@ class Store {
             const totalPurchased = custSales.reduce((sum, s) => sum + (Number(s.total_amount || s.totalAmount || 0)), 0);
             const totalPaid = custSales.reduce((sum, s) => sum + (Number(s.amount_paid || s.amountPaid || 0)), 0);
             const balancePending = custSales.reduce((sum, s) => sum + (Number(s.balance_pending || s.balancePending || 0)), 0);
+            return { ...c, totalPurchased, totalPaid, balancePending };
+          });
+        }
+      }
+
+      // Populate Napier records if fetched from Supabase (preserve local fallback if table not yet migrated)
+      const fetchedNapierPlots = results[offset++];
+      const fetchedNapierHarvests = results[offset++];
+      const fetchedNapierMovements = results[offset++];
+      if (Array.isArray(fetchedNapierPlots)) this.data.napierPlots = fetchedNapierPlots;
+      if (Array.isArray(fetchedNapierHarvests)) this.data.napierHarvests = fetchedNapierHarvests;
+      if (Array.isArray(fetchedNapierMovements)) this.data.napierStockMovements = fetchedNapierMovements;
+
+      if (isFinance) {
+        const rawNapierCustomers = results[offset++];
+        const fNapierSales = results[offset++];
+        const fNapierExpenses = results[offset++];
+        const fNapierPayments = results[offset++];
+
+        if (Array.isArray(fNapierSales)) this.data.napierSales = fNapierSales;
+        if (Array.isArray(fNapierExpenses)) this.data.napierExpenses = fNapierExpenses;
+        if (Array.isArray(fNapierPayments)) this.data.napierPayments = fNapierPayments;
+
+        if (Array.isArray(rawNapierCustomers)) {
+          const sales = this.data.napierSales || [];
+          this.data.napierCustomers = rawNapierCustomers.map(c => {
+            const custSales = sales.filter(s => s.customer_id === c.id || s.customer_name === c.name || s.name === c.name);
+            const totalPurchased = custSales.reduce((sum, s) => sum + (Number(s.total_amount || 0)), 0);
+            const totalPaid = custSales.reduce((sum, s) => sum + (Number(s.amount_paid || 0)), 0);
+            const balancePending = custSales.reduce((sum, s) => sum + (Number(s.balance_pending || 0)), 0);
             return { ...c, totalPurchased, totalPaid, balancePending };
           });
         }
@@ -561,6 +615,28 @@ class Store {
   canEditFinancials() { return ['Owner','Accountant'].includes(this.getRole()); }
   canDelete() { return ['Owner','Accountant'].includes(this.getRole()); }
   canManageUsers() { return this.getRole() === 'Owner'; }
+
+  // ─── Team / User Management (Owner Only) ──────────────────────────
+  async getTeamAccounts() {
+    if (!this.canManageUsers()) {
+      throw new Error('Access denied. Only Owner can manage team accounts.');
+    }
+    return await profilesService.getAll();
+  }
+
+  async changeUserPassword(userId, newPassword) {
+    if (!this.canManageUsers()) {
+      throw new Error('Access denied. Only Owner can change account passwords.');
+    }
+    return await profilesService.setPassword(userId, newPassword);
+  }
+
+  async setUserActiveStatus(userId, isActive) {
+    if (!this.canManageUsers()) {
+      throw new Error('Access denied. Only Owner can modify account status.');
+    }
+    return await profilesService.setActive(userId, isActive);
+  }
 
   // ─── Raw Material (Hay) Tracking ─────────────────────────────────
   isHayMaterial(p) {
@@ -2356,6 +2432,701 @@ class Store {
       this.data.goatCustomers = (this.data.goatCustomers || []).filter(c => c.id !== id && c.name !== id);
       try { await goatCustomersService.delete(id); } catch(e) {}
     }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // NAPIER MANAGEMENT MODULE (STRICTLY ISOLATED OPERATIONS)
+  // ═════════════════════════════════════════════════════════════════
+
+  getNapierStockSummary() {
+    this.data.napierStockMovements = this.data.napierStockMovements || [];
+    this.data.napierHarvests = this.data.napierHarvests || [];
+    this.data.napierSales = this.data.napierSales || [];
+    this.data.napierStockAdjustments = this.data.napierStockAdjustments || [];
+
+    let availableStockKg = 0;
+    let totalHarvestedKg = 0;
+    let totalHarvestCost = 0;
+    let totalSoldKg = 0;
+    let totalWastageKg = 0;
+    let totalAdjustmentsKg = 0;
+
+    if (this.data.napierStockMovements.length > 0) {
+      this.data.napierStockMovements.forEach(m => {
+        const qty = Number(m.quantity_kg) || 0;
+        availableStockKg += qty;
+        if (m.movement_type === 'HARVEST_IN') {
+          totalHarvestedKg += Math.max(0, qty);
+          totalHarvestCost += Math.max(0, Number(m.total_cost) || 0);
+        } else if (m.movement_type === 'SALE_OUT') {
+          totalSoldKg += Math.abs(qty);
+        } else if (m.movement_type === 'WASTAGE') {
+          totalWastageKg += Math.abs(qty);
+        } else if (m.movement_type === 'ADJUSTMENT_ADD' || m.movement_type === 'ADJUSTMENT_SUB') {
+          totalAdjustmentsKg += qty;
+        }
+      });
+    } else {
+      // Derive from records if movement ledger is initializing
+      totalHarvestedKg = this.data.napierHarvests.reduce((sum, h) => sum + (Number(h.quantity_kg) || 0), 0);
+      totalHarvestCost = this.data.napierHarvests.reduce((sum, h) => sum + (Number(h.total_production_cost) || 0), 0);
+      totalSoldKg = this.data.napierSales.reduce((sum, s) => sum + (Number(s.quantity_deducted_kg) || 0), 0);
+      totalWastageKg = this.data.napierStockAdjustments
+        .filter(a => a.adj_type === 'WASTAGE')
+        .reduce((sum, a) => sum + (Number(a.quantity_kg) || 0), 0);
+      const adjAdd = this.data.napierStockAdjustments
+        .filter(a => a.adj_type === 'ADDITION')
+        .reduce((sum, a) => sum + (Number(a.quantity_kg) || 0), 0);
+      const adjSub = this.data.napierStockAdjustments
+        .filter(a => a.adj_type === 'REDUCTION')
+        .reduce((sum, a) => sum + (Number(a.quantity_kg) || 0), 0);
+      totalAdjustmentsKg = adjAdd - adjSub;
+      availableStockKg = totalHarvestedKg - totalSoldKg - totalWastageKg + totalAdjustmentsKg;
+    }
+
+    const weightedAvgCostPerKg = totalHarvestedKg > 0 ? (totalHarvestCost / totalHarvestedKg) : 0;
+    const inventoryValuation = Math.max(0, availableStockKg) * weightedAvgCostPerKg;
+
+    return {
+      availableStockKg: Math.round(availableStockKg * 100) / 100,
+      availableStockTonnes: Math.round((availableStockKg / 1000) * 1000) / 1000,
+      totalHarvestedKg: Math.round(totalHarvestedKg * 100) / 100,
+      totalHarvestedTonnes: Math.round((totalHarvestedKg / 1000) * 1000) / 1000,
+      totalSoldKg: Math.round(totalSoldKg * 100) / 100,
+      totalSoldTonnes: Math.round((totalSoldKg / 1000) * 1000) / 1000,
+      totalWastageKg: Math.round(totalWastageKg * 100) / 100,
+      totalAdjustmentsKg: Math.round(totalAdjustmentsKg * 100) / 100,
+      weightedAvgCostPerKg: Math.round(weightedAvgCostPerKg * 10000) / 10000,
+      inventoryValuation: Math.round(inventoryValuation * 100) / 100
+    };
+  }
+
+  getNapierFinancialSummary(period = 'this-month') {
+    const today = new Date();
+    const curYear = today.getFullYear();
+    const curMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const thisMonthPrefix = `${curYear}-${curMonth}`;
+
+    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const prevMonthPrefix = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const filterDate = (dStr) => {
+      if (!dStr) return false;
+      const d = String(dStr).slice(0, 10);
+      if (period === 'this-month') return d.startsWith(thisMonthPrefix);
+      if (period === 'last-month') return d.startsWith(prevMonthPrefix);
+      if (period === 'this-year') return d.startsWith(String(curYear));
+      return true; // 'all-time'
+    };
+
+    const stockSummary = this.getNapierStockSummary();
+    const sales = (this.data.napierSales || []).filter(s => filterDate(s.sale_date));
+    const allSales = this.data.napierSales || [];
+    const expenses = (this.data.napierExpenses || []).filter(e => filterDate(e.expense_date));
+    const harvests = (this.data.napierHarvests || []).filter(h => filterDate(h.harvest_date));
+    const payments = (this.data.napierPayments || []).filter(p => filterDate(p.payment_date));
+
+    const salesRevenue = sales.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0);
+    const cogsAmount = sales.reduce((sum, s) => {
+      if (s.cogs_amount !== undefined && s.cogs_amount !== null && Number(s.cogs_amount) > 0) {
+        return sum + Number(s.cogs_amount);
+      }
+      return sum + ((Number(s.quantity_deducted_kg) || 0) * stockSummary.weightedAvgCostPerKg);
+    }, 0);
+
+    const grossProfit = salesRevenue - cogsAmount;
+    const operatingExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const netProfit = grossProfit - operatingExpenses;
+
+    const cashReceived = payments.length > 0
+      ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+      : sales.reduce((sum, s) => sum + (Number(s.amount_paid) || 0), 0);
+
+    const totalReceivables = allSales.reduce((sum, s) => sum + (Number(s.balance_pending) || 0), 0);
+    const periodReceivables = sales.reduce((sum, s) => sum + (Number(s.balance_pending) || 0), 0);
+    const totalHarvestedPeriodKg = harvests.reduce((sum, h) => sum + (Number(h.quantity_kg) || 0), 0);
+    const totalSoldPeriodKg = sales.reduce((sum, s) => sum + (Number(s.quantity_deducted_kg) || 0), 0);
+    const productionCostPeriod = harvests.reduce((sum, h) => sum + (Number(h.total_production_cost) || 0), 0);
+
+    return {
+      salesRevenue,
+      cogsAmount,
+      grossProfit,
+      operatingExpenses,
+      netProfit,
+      cashReceived,
+      totalReceivables,
+      periodReceivables,
+      totalHarvestedPeriodKg,
+      totalSoldPeriodKg,
+      productionCostPeriod,
+      stockSummary
+    };
+  }
+
+  async addNapierPlot(plotInput) {
+    const id = plotInput.id || `nplt-${Date.now()}`;
+    const code = plotInput.plot_code || `NAP-PLT-${Math.floor(100 + Math.random() * 900)}`;
+    const newPlot = {
+      ...plotInput,
+      id,
+      plot_code: code,
+      area: Number(plotInput.area) || 1.0,
+      area_unit: plotInput.area_unit || 'Acres',
+      establishment_cost: Number(plotInput.establishment_cost) || 0,
+      status: plotInput.status || 'Growing',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierPlotsService.create(newPlot);
+      if (res && res.id) Object.assign(newPlot, res);
+    } catch (e) {
+      console.warn('addNapierPlot cloud fallback:', e.message);
+    }
+
+    this.data.napierPlots = this.data.napierPlots || [];
+    this.data.napierPlots.unshift(newPlot);
+    this._saveCache();
+    this.notify();
+    return newPlot;
+  }
+
+  async updateNapierPlot(id, plotInput) {
+    const plot = (this.data.napierPlots || []).find(p => p.id === id || p.plot_code === id);
+    if (!plot) throw new Error('Napier plot not found');
+
+    Object.assign(plot, plotInput, {
+      area: plotInput.area !== undefined ? Number(plotInput.area) : plot.area,
+      establishment_cost: plotInput.establishment_cost !== undefined ? Number(plotInput.establishment_cost) : plot.establishment_cost,
+      updated_at: new Date().toISOString()
+    });
+
+    try {
+      await napierPlotsService.update(plot.id, plot);
+    } catch (e) {
+      console.warn('updateNapierPlot cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return plot;
+  }
+
+  async deleteNapierPlot(id) {
+    const actualId = ((this.data.napierPlots || []).find(p => p.id === id || p.plot_code === id))?.id || id;
+    this.data.napierPlots = (this.data.napierPlots || []).filter(p => p.id !== actualId && p.plot_code !== id);
+
+    try {
+      await napierPlotsService.delete(actualId);
+    } catch (e) {
+      console.warn('deleteNapierPlot cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  async addNapierCustomer(customerInput) {
+    const id = customerInput.id || `ncust-${Date.now()}`;
+    const newCustomer = {
+      ...customerInput,
+      id,
+      name: (customerInput.name || '').trim(),
+      phone: customerInput.phone || '',
+      address: customerInput.address || '',
+      notes: customerInput.notes || '',
+      is_active: customerInput.is_active !== false,
+      totalPurchased: 0,
+      totalPaid: 0,
+      balancePending: 0,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierCustomersService.create(newCustomer);
+      if (res && res.id) Object.assign(newCustomer, res);
+    } catch (e) {
+      console.warn('addNapierCustomer cloud fallback:', e.message);
+    }
+
+    this.data.napierCustomers = this.data.napierCustomers || [];
+    this.data.napierCustomers.push(newCustomer);
+    this._saveCache();
+    this.notify();
+    return newCustomer;
+  }
+
+  async updateNapierCustomer(id, customerInput) {
+    const cust = (this.data.napierCustomers || []).find(c => c.id === id || c.name === id);
+    if (!cust) throw new Error('Napier customer not found');
+
+    Object.assign(cust, customerInput, {
+      updated_at: new Date().toISOString()
+    });
+
+    try {
+      await napierCustomersService.update(cust.id, cust);
+    } catch (e) {
+      console.warn('updateNapierCustomer cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return cust;
+  }
+
+  async deleteNapierCustomer(id) {
+    const actualId = ((this.data.napierCustomers || []).find(c => c.id === id || c.name === id))?.id || id;
+    this.data.napierCustomers = (this.data.napierCustomers || []).filter(c => c.id !== actualId && c.name !== id);
+
+    try {
+      await napierCustomersService.delete(actualId);
+    } catch (e) {
+      console.warn('deleteNapierCustomer cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  async recordNapierHarvest(harvestInput) {
+    const plot = (this.data.napierPlots || []).find(p => p.id === harvestInput.plot_id || p.plot_code === harvestInput.plot_id);
+    if (!plot) throw new Error('Cultivation plot not found');
+
+    const inputQty = Number(harvestInput.input_quantity || harvestInput.quantity_kg);
+    if (isNaN(inputQty) || inputQty <= 0) throw new Error('Harvest quantity must be greater than zero.');
+
+    const unit = harvestInput.input_unit || 'kg';
+    const qtyKg = (unit === 'tonnes' || unit === 'tonne') ? (inputQty * 1000) : inputQty;
+
+    const labourCost = Number(harvestInput.labour_cost || 0);
+    const harvestingCost = Number(harvestInput.harvesting_cost || 0);
+    const transportCost = Number(harvestInput.transport_cost || 0);
+    const otherCost = Number(harvestInput.other_cost || 0);
+    const totalCost = labourCost + harvestingCost + transportCost + otherCost;
+    const costPerKg = qtyKg > 0 ? (totalCost / qtyKg) : 0;
+
+    const harvestDate = harvestInput.harvest_date || this.getCurrentDate();
+    const ref = harvestInput.harvest_ref || `NAP-HRV-${harvestDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newHarvest = {
+      id: harvestInput.id || `nhrv-${Date.now()}`,
+      harvest_ref: ref,
+      harvest_date: harvestDate,
+      plot_id: plot.id,
+      plot_name: plot.plot_name,
+      plot_code: plot.plot_code,
+      quantity_kg: qtyKg,
+      input_quantity: inputQty,
+      input_unit: unit,
+      labour_cost: labourCost,
+      harvesting_cost: harvestingCost,
+      transport_cost: transportCost,
+      other_cost: otherCost,
+      total_production_cost: totalCost,
+      cost_per_kg: costPerKg,
+      notes: harvestInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierHarvestsService.recordHarvest(newHarvest);
+      if (res && res.id) Object.assign(newHarvest, res);
+    } catch (e) {
+      console.warn('recordNapierHarvest cloud fallback:', e.message);
+    }
+
+    // Add harvest record
+    this.data.napierHarvests = this.data.napierHarvests || [];
+    this.data.napierHarvests.unshift(newHarvest);
+
+    // Record stock ledger addition
+    const movement = {
+      id: `nmv-${Date.now()}`,
+      movement_date: harvestDate,
+      movement_type: 'HARVEST_IN',
+      quantity_kg: qtyKg,
+      unit_cost: costPerKg,
+      total_cost: totalCost,
+      reference_id: newHarvest.id,
+      reference_no: ref,
+      notes: `Harvest from ${plot.plot_name}`
+    };
+    this.data.napierStockMovements = this.data.napierStockMovements || [];
+    this.data.napierStockMovements.unshift(movement);
+
+    // Plot status resets to 'Growing' for subsequent cuts
+    plot.status = 'Growing';
+    plot.updated_at = new Date().toISOString();
+
+    this._saveCache();
+    this.notify();
+    return newHarvest;
+  }
+
+  async deleteNapierHarvest(id) {
+    const actualId = ((this.data.napierHarvests || []).find(h => h.id === id || h.harvest_ref === id))?.id || id;
+    const harvest = (this.data.napierHarvests || []).find(h => h.id === actualId);
+
+    if (harvest) {
+      // Remove associated stock movement
+      this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(
+        m => m.reference_id !== actualId && m.reference_no !== harvest.harvest_ref
+      );
+    }
+
+    this.data.napierHarvests = (this.data.napierHarvests || []).filter(h => h.id !== actualId && h.harvest_ref !== id);
+
+    try {
+      await napierHarvestsService.delete(actualId);
+    } catch (e) {
+      console.warn('deleteNapierHarvest cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  async recordNapierStockAdjustment(adjInput) {
+    const qty = Number(adjInput.quantity_kg);
+    if (isNaN(qty) || qty <= 0) throw new Error('Adjustment quantity must be greater than zero.');
+
+    const summary = this.getNapierStockSummary();
+    if (adjInput.adj_type === 'REDUCTION' || adjInput.adj_type === 'WASTAGE') {
+      if (summary.availableStockKg < qty) {
+        throw new Error(`Insufficient stock to adjust. Available: ${summary.availableStockKg} kg, requested: ${qty} kg.`);
+      }
+    }
+
+    const adjDate = adjInput.adj_date || this.getCurrentDate();
+    const ref = adjInput.adj_ref || `NAP-ADJ-${adjDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newAdj = {
+      id: adjInput.id || `nadj-${Date.now()}`,
+      adj_ref: ref,
+      adj_date: adjDate,
+      adj_type: adjInput.adj_type, // 'ADDITION' | 'REDUCTION' | 'WASTAGE'
+      quantity_kg: qty,
+      reason: adjInput.reason || '',
+      notes: adjInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierStockService.recordAdjustment(newAdj);
+      if (res && res.id) Object.assign(newAdj, res);
+    } catch (e) {
+      console.warn('recordNapierStockAdjustment cloud fallback:', e.message);
+    }
+
+    this.data.napierStockAdjustments = this.data.napierStockAdjustments || [];
+    this.data.napierStockAdjustments.unshift(newAdj);
+
+    const delta = newAdj.adj_type === 'ADDITION' ? qty : -qty;
+    const mType = newAdj.adj_type === 'ADDITION' ? 'ADJUSTMENT_ADD' : newAdj.adj_type === 'WASTAGE' ? 'WASTAGE' : 'ADJUSTMENT_SUB';
+
+    const movement = {
+      id: `nmv-${Date.now()}`,
+      movement_date: adjDate,
+      movement_type: mType,
+      quantity_kg: delta,
+      unit_cost: summary.weightedAvgCostPerKg,
+      total_cost: Math.round(delta * summary.weightedAvgCostPerKg * 100) / 100,
+      reference_id: newAdj.id,
+      reference_no: ref,
+      notes: newAdj.reason
+    };
+    this.data.napierStockMovements = this.data.napierStockMovements || [];
+    this.data.napierStockMovements.unshift(movement);
+
+    this._saveCache();
+    this.notify();
+    return newAdj;
+  }
+
+  async recordNapierSale(saleInput) {
+    const summary = this.getNapierStockSummary();
+    const qtyDeductedKg = Number(saleInput.quantity_deducted_kg);
+    if (isNaN(qtyDeductedKg) || qtyDeductedKg <= 0) {
+      throw new Error('Valid stock deduction quantity in kilograms is required.');
+    }
+
+    if (summary.availableStockKg < qtyDeductedKg) {
+      throw new Error(`Insufficient Napier stock. Available: ${summary.availableStockKg} kg, requested sale: ${qtyDeductedKg} kg.`);
+    }
+
+    const saleDate = saleInput.sale_date || this.getCurrentDate();
+    const qtySold = Number(saleInput.quantity_sold) || qtyDeductedKg;
+    const ratePerUnit = Number(saleInput.rate_per_unit) || 0;
+    const subtotal = Math.round(qtySold * ratePerUnit * 100) / 100;
+    const transportCharges = Number(saleInput.transport_charges || 0);
+    const otherCharges = Number(saleInput.other_charges || 0);
+    const totalAmount = subtotal + transportCharges + otherCharges;
+    const amountPaid = Number(saleInput.amount_paid || 0);
+    const balance = Math.max(0, totalAmount - amountPaid);
+    const paymentStatus = balance <= 0 ? 'Paid' : amountPaid > 0 ? 'Partial' : 'Unpaid';
+    const cogsAmount = Math.round(qtyDeductedKg * summary.weightedAvgCostPerKg * 100) / 100;
+
+    let cust = (this.data.napierCustomers || []).find(c => c.id === saleInput.customer_id || c.name === saleInput.customer_name);
+    if (!cust) {
+      cust = await this.addNapierCustomer({ name: saleInput.customer_name || 'Walk-in Dairy Customer' });
+    }
+
+    const invoiceNo = saleInput.invoice_no || `NAP-SAL-${saleDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newSale = {
+      id: saleInput.id || `nsal-${Date.now()}`,
+      invoice_no: invoiceNo,
+      sale_date: saleDate,
+      customer_id: cust.id,
+      customer_name: cust.name,
+      pricing_method: saleInput.pricing_method || 'weight_based',
+      sale_unit: saleInput.sale_unit || 'kg',
+      quantity_sold: qtySold,
+      rate_per_unit: ratePerUnit,
+      quantity_deducted_kg: qtyDeductedKg,
+      cogs_amount: cogsAmount,
+      subtotal,
+      transport_charges: transportCharges,
+      other_charges: otherCharges,
+      total_amount: totalAmount,
+      amount_paid: amountPaid,
+      balance_pending: balance,
+      payment_status: paymentStatus,
+      payment_method: saleInput.payment_method || 'Cash',
+      due_date: saleInput.due_date || null,
+      notes: saleInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierSalesService.recordSale(newSale);
+      if (res && res.id) Object.assign(newSale, res);
+    } catch (e) {
+      if (e.message?.includes('Insufficient stock')) throw e;
+      console.warn('recordNapierSale cloud fallback:', e.message);
+    }
+
+    this.data.napierSales = this.data.napierSales || [];
+    this.data.napierSales.unshift(newSale);
+
+    // Deduct stock in ledger
+    const movement = {
+      id: `nmv-${Date.now()}`,
+      movement_date: saleDate,
+      movement_type: 'SALE_OUT',
+      quantity_kg: -qtyDeductedKg,
+      unit_cost: summary.weightedAvgCostPerKg,
+      total_cost: -cogsAmount,
+      reference_id: newSale.id,
+      reference_no: invoiceNo,
+      notes: `Sale to ${cust.name}`
+    };
+    this.data.napierStockMovements = this.data.napierStockMovements || [];
+    this.data.napierStockMovements.unshift(movement);
+
+    // Initial payment record
+    if (amountPaid > 0) {
+      const pRef = `NAP-PAY-${saleDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const payment = {
+        id: `npay-${Date.now()}`,
+        payment_ref: pRef,
+        sale_id: newSale.id,
+        invoice_no: invoiceNo,
+        customer_id: cust.id,
+        customer_name: cust.name,
+        payment_date: saleDate,
+        amount: amountPaid,
+        payment_method: saleInput.payment_method || 'Cash',
+        reference_no: invoiceNo,
+        notes: 'Initial payment at sale',
+        created_at: new Date().toISOString()
+      };
+      this.data.napierPayments = this.data.napierPayments || [];
+      this.data.napierPayments.unshift(payment);
+    }
+
+    // Update customer balances
+    cust.totalPurchased = (Number(cust.totalPurchased) || 0) + totalAmount;
+    cust.totalPaid = (Number(cust.totalPaid) || 0) + amountPaid;
+    cust.balancePending = (Number(cust.balancePending) || 0) + balance;
+
+    this._saveCache();
+    this.notify();
+    return newSale;
+  }
+
+  async deleteNapierSale(id) {
+    const actualId = ((this.data.napierSales || []).find(s => s.id === id || s.invoice_no === id))?.id || id;
+    const sale = (this.data.napierSales || []).find(s => s.id === actualId);
+
+    if (sale) {
+      // Revert stock ledger deduction
+      this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(
+        m => m.reference_id !== actualId && m.reference_no !== sale.invoice_no
+      );
+      // Remove linked payments
+      this.data.napierPayments = (this.data.napierPayments || []).filter(p => p.sale_id !== actualId);
+
+      // Revert customer balances
+      const cust = (this.data.napierCustomers || []).find(c => c.id === sale.customer_id || c.name === sale.customer_name);
+      if (cust) {
+        cust.totalPurchased = Math.max(0, (Number(cust.totalPurchased) || 0) - (Number(sale.total_amount) || 0));
+        cust.totalPaid = Math.max(0, (Number(cust.totalPaid) || 0) - (Number(sale.amount_paid) || 0));
+        cust.balancePending = Math.max(0, (Number(cust.balancePending) || 0) - (Number(sale.balance_pending) || 0));
+      }
+    }
+
+    this.data.napierSales = (this.data.napierSales || []).filter(s => s.id !== actualId && s.invoice_no !== id);
+
+    try {
+      await napierSalesService.delete(actualId);
+    } catch (e) {
+      console.warn('deleteNapierSale cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  async addNapierPayment(paymentInput) {
+    const sale = (this.data.napierSales || []).find(s => s.id === paymentInput.sale_id || s.invoice_no === paymentInput.sale_id);
+    if (!sale) throw new Error('Napier invoice not found');
+
+    const amount = Number(paymentInput.amount);
+    if (isNaN(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero.');
+    if (amount > Number(sale.balance_pending)) {
+      throw new Error(`Payment amount (${amount}) exceeds pending balance (${sale.balance_pending}).`);
+    }
+
+    const payDate = paymentInput.payment_date || this.getCurrentDate();
+    const pRef = paymentInput.payment_ref || `NAP-PAY-${payDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newPayment = {
+      id: paymentInput.id || `npay-${Date.now()}`,
+      payment_ref: pRef,
+      sale_id: sale.id,
+      invoice_no: sale.invoice_no,
+      customer_id: sale.customer_id,
+      customer_name: sale.customer_name,
+      payment_date: payDate,
+      amount,
+      payment_method: paymentInput.payment_method || 'Cash',
+      reference_no: paymentInput.reference_no || '',
+      notes: paymentInput.notes || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await napierSalesService.addPayment(newPayment);
+    } catch (e) {
+      console.warn('addNapierPayment cloud fallback:', e.message);
+    }
+
+    this.data.napierPayments = this.data.napierPayments || [];
+    this.data.napierPayments.unshift(newPayment);
+
+    // Update invoice balance
+    sale.amount_paid = (Number(sale.amount_paid) || 0) + amount;
+    sale.balance_pending = Math.max(0, (Number(sale.balance_pending) || 0) - amount);
+    sale.payment_status = sale.balance_pending <= 0 ? 'Paid' : 'Partial';
+
+    // Update customer balance
+    const cust = (this.data.napierCustomers || []).find(c => c.id === sale.customer_id || c.name === sale.customer_name);
+    if (cust) {
+      cust.totalPaid = (Number(cust.totalPaid) || 0) + amount;
+      cust.balancePending = Math.max(0, (Number(cust.balancePending) || 0) - amount);
+    }
+
+    this._saveCache();
+    this.notify();
+    return newPayment;
+  }
+
+  async recordNapierExpense(expenseInput) {
+    const amount = Number(expenseInput.amount);
+    if (isNaN(amount) || amount <= 0) throw new Error('Expense amount must be greater than zero.');
+
+    const expDate = expenseInput.expense_date || this.getCurrentDate();
+    const ref = expenseInput.expense_ref || `NAP-EXP-${expDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newExpense = {
+      id: expenseInput.id || `nexp-${Date.now()}`,
+      expense_ref: ref,
+      expense_date: expDate,
+      category: expenseInput.category || 'Other Expenses',
+      amount,
+      payee: expenseInput.payee || '',
+      payment_method: expenseInput.payment_method || 'Cash',
+      plot_id: expenseInput.plot_id || null,
+      harvest_id: expenseInput.harvest_id || null,
+      description: expenseInput.description || '',
+      notes: expenseInput.notes || '',
+      attachment_url: expenseInput.attachment_url || '',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await napierExpensesService.create(newExpense);
+      if (res && res.id) Object.assign(newExpense, res);
+    } catch (e) {
+      console.warn('recordNapierExpense cloud fallback:', e.message);
+    }
+
+    this.data.napierExpenses = this.data.napierExpenses || [];
+    this.data.napierExpenses.unshift(newExpense);
+    this._saveCache();
+    this.notify();
+    return newExpense;
+  }
+
+  async deleteNapierExpense(id) {
+    const actualId = ((this.data.napierExpenses || []).find(e => e.id === id || e.expense_ref === id))?.id || id;
+    this.data.napierExpenses = (this.data.napierExpenses || []).filter(e => e.id !== actualId && e.expense_ref !== id);
+
+    try {
+      await napierExpensesService.delete(actualId);
+    } catch (e) {
+      console.warn('deleteNapierExpense cloud fallback:', e.message);
+    }
+
+    this._saveCache();
+    this.notify();
+    return { success: true };
+  }
+
+  async resetNapierData(options = {}) {
+    if (options.plots) this.data.napierPlots = [];
+    if (options.harvests) {
+      this.data.napierHarvests = [];
+      this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(m => m.movement_type !== 'HARVEST_IN');
+    }
+    if (options.sales) {
+      this.data.napierSales = [];
+      this.data.napierPayments = [];
+      this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(m => m.movement_type !== 'SALE_OUT');
+      (this.data.napierCustomers || []).forEach(c => {
+        c.totalPurchased = 0;
+        c.totalPaid = 0;
+        c.balancePending = 0;
+      });
+    }
+    if (options.expenses) this.data.napierExpenses = [];
+    if (options.stock) {
+      this.data.napierStockMovements = [];
+      this.data.napierStockAdjustments = [];
+    }
+    if (options.customers) this.data.napierCustomers = [];
 
     this._saveCache();
     this.notify();

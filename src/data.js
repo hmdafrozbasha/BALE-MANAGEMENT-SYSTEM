@@ -154,6 +154,50 @@ export const INITIAL_DATA = {
   goatWeightRecords: [],
   goatHealthRecords: [],
   goatSupplierPayments: [],
-  goatCustomerPayments: []
+  goatCustomerPayments: [],
+
+  // ─────────────────────────────────────────────────────────────────
+  // NAPIER MANAGEMENT (Strictly Isolated Business Records)
+  // ─────────────────────────────────────────────────────────────────
+  napierPlots: [
+    {
+      id: 'nplt-1',
+      plot_code: 'NAP-PLT-001',
+      plot_name: 'Plot A - North Field',
+      location: 'Sector 4, Main Farm',
+      area: 2.5,
+      area_unit: 'Acres',
+      napier_variety: 'Super Napier',
+      planting_date: '2026-01-15',
+      establishment_cost: 35000,
+      irrigation_type: 'Drip',
+      status: 'Ready for Harvest',
+      notes: 'High yield potential, ready for cycle cut'
+    },
+    {
+      id: 'nplt-2',
+      plot_code: 'NAP-PLT-002',
+      plot_name: 'Plot B - Canal Bank',
+      location: 'Sector 7, Canal Road',
+      area: 1.8,
+      area_unit: 'Acres',
+      napier_variety: 'Pakchong 1 (Super Napier)',
+      planting_date: '2026-02-10',
+      establishment_cost: 26000,
+      irrigation_type: 'Flood',
+      status: 'Growing',
+      notes: 'Planted after soil enrichment'
+    }
+  ],
+  napierCustomers: [
+    { id: 'ncust-1', name: 'Krishna Dairy Farm', phone: '+91 98491 12345', address: 'Village Road, Warangal', is_active: true },
+    { id: 'ncust-2', name: 'Sri Venkateswara Cattle Feed', phone: '+91 97012 34567', address: 'Industrial Area, Hanamkonda', is_active: true }
+  ],
+  napierHarvests: [],
+  napierStockMovements: [],
+  napierSales: [],
+  napierExpenses: [],
+  napierPayments: [],
+  napierStockAdjustments: []
 };
 
