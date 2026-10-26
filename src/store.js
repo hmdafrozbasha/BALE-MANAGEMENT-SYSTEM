@@ -23,6 +23,20 @@ import {
 const CACHE_KEY = 'bms_store_cache';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function isValidUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
+}
+
 class Store {
   constructor() {
     this.listeners = new Set();
@@ -2569,7 +2583,7 @@ class Store {
   }
 
   async addNapierPlot(plotInput) {
-    const id = plotInput.id || `nplt-${Date.now()}`;
+    const id = isValidUUID(plotInput.id) ? plotInput.id : generateUUID();
     const code = plotInput.plot_code || `NAP-PLT-${Math.floor(100 + Math.random() * 900)}`;
     const newPlot = {
       ...plotInput,
@@ -2634,7 +2648,7 @@ class Store {
   }
 
   async addNapierCustomer(customerInput) {
-    const id = customerInput.id || `ncust-${Date.now()}`;
+    const id = isValidUUID(customerInput.id) ? customerInput.id : generateUUID();
     const newCustomer = {
       ...customerInput,
       id,
@@ -2718,7 +2732,7 @@ class Store {
     const ref = harvestInput.harvest_ref || `NAP-HRV-${harvestDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newHarvest = {
-      id: harvestInput.id || `nhrv-${Date.now()}`,
+      id: isValidUUID(harvestInput.id) ? harvestInput.id : generateUUID(),
       harvest_ref: ref,
       harvest_date: harvestDate,
       plot_id: plot.id,
@@ -2811,7 +2825,7 @@ class Store {
     const ref = adjInput.adj_ref || `NAP-ADJ-${adjDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newAdj = {
-      id: adjInput.id || `nadj-${Date.now()}`,
+      id: isValidUUID(adjInput.id) ? adjInput.id : generateUUID(),
       adj_ref: ref,
       adj_date: adjDate,
       adj_type: adjInput.adj_type, // 'ADDITION' | 'REDUCTION' | 'WASTAGE'
@@ -2884,7 +2898,7 @@ class Store {
     const invoiceNo = saleInput.invoice_no || `NAP-SAL-${saleDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newSale = {
-      id: saleInput.id || `nsal-${Date.now()}`,
+      id: isValidUUID(saleInput.id) ? saleInput.id : generateUUID(),
       invoice_no: invoiceNo,
       sale_date: saleDate,
       customer_id: cust.id,
@@ -3013,7 +3027,7 @@ class Store {
     const pRef = paymentInput.payment_ref || `NAP-PAY-${payDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newPayment = {
-      id: paymentInput.id || `npay-${Date.now()}`,
+      id: isValidUUID(paymentInput.id) ? paymentInput.id : generateUUID(),
       payment_ref: pRef,
       sale_id: sale.id,
       invoice_no: sale.invoice_no,
@@ -3061,7 +3075,7 @@ class Store {
     const ref = expenseInput.expense_ref || `NAP-EXP-${expDate.slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newExpense = {
-      id: expenseInput.id || `nexp-${Date.now()}`,
+      id: isValidUUID(expenseInput.id) ? expenseInput.id : generateUUID(),
       expense_ref: ref,
       expense_date: expDate,
       category: expenseInput.category || 'Other Expenses',

@@ -5,6 +5,8 @@
 
 import { supabase } from '../lib/supabase.js';
 
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
 // ─────────────────────────────────────────────────────────────────
 // NAPIER DASHBOARD SERVICE
 // ─────────────────────────────────────────────────────────────────
@@ -41,22 +43,51 @@ export const napierPlotsService = {
 
   async create(plotData) {
     // Generate plot code if not provided
-    if (!plotData.plot_code) {
+    let plotCode = plotData.plot_code;
+    if (!plotCode) {
       try {
         const { data: code } = await supabase.rpc('generate_napier_plot_code');
-        if (code) plotData.plot_code = code;
+        if (code) plotCode = code;
       } catch (e) {}
-      if (!plotData.plot_code) {
-        plotData.plot_code = `NAP-PLT-${Math.floor(100 + Math.random() * 900)}`;
+      if (!plotCode) {
+        plotCode = `NAP-PLT-${Math.floor(100 + Math.random() * 900)}`;
       }
     }
-    const { data, error } = await supabase.from('napier_plots').insert(plotData).select().single();
+
+    const payload = {
+      plot_code: plotCode,
+      plot_name: (plotData.plot_name || '').trim(),
+      location: plotData.location || '',
+      area: Number(plotData.area) || 1.0,
+      area_unit: plotData.area_unit || 'Acres',
+      napier_variety: plotData.napier_variety || 'Super Napier',
+      planting_date: plotData.planting_date || new Date().toISOString().split('T')[0],
+      establishment_cost: Number(plotData.establishment_cost) || 0,
+      irrigation_type: plotData.irrigation_type || 'Drip',
+      status: plotData.status || 'Growing',
+      notes: plotData.notes || ''
+    };
+    if (isUUID(plotData.id)) payload.id = plotData.id;
+
+    const { data, error } = await supabase.from('napier_plots').insert(payload).select().single();
     if (error) throw error;
     return data;
   },
 
   async update(id, plotData) {
-    const { data, error } = await supabase.from('napier_plots').update(plotData).eq('id', id).select().single();
+    const payload = {
+      plot_name: plotData.plot_name,
+      location: plotData.location,
+      area: plotData.area,
+      area_unit: plotData.area_unit,
+      napier_variety: plotData.napier_variety,
+      planting_date: plotData.planting_date,
+      establishment_cost: plotData.establishment_cost,
+      irrigation_type: plotData.irrigation_type,
+      status: plotData.status,
+      notes: plotData.notes
+    };
+    const { data, error } = await supabase.from('napier_plots').update(payload).eq('id', id).select().single();
     if (error) throw error;
     return data;
   },
@@ -87,13 +118,29 @@ export const napierCustomersService = {
   },
 
   async create(customerData) {
-    const { data, error } = await supabase.from('napier_customers').insert(customerData).select().single();
+    const payload = {
+      name: (customerData.name || '').trim(),
+      phone: customerData.phone || '',
+      address: customerData.address || '',
+      notes: customerData.notes || '',
+      is_active: customerData.is_active !== false
+    };
+    if (isUUID(customerData.id)) payload.id = customerData.id;
+
+    const { data, error } = await supabase.from('napier_customers').insert(payload).select().single();
     if (error) throw error;
     return data;
   },
 
   async update(id, customerData) {
-    const { data, error } = await supabase.from('napier_customers').update(customerData).eq('id', id).select().single();
+    const payload = {
+      name: customerData.name,
+      phone: customerData.phone,
+      address: customerData.address,
+      notes: customerData.notes,
+      is_active: customerData.is_active
+    };
+    const { data, error } = await supabase.from('napier_customers').update(payload).eq('id', id).select().single();
     if (error) throw error;
     return data;
   },

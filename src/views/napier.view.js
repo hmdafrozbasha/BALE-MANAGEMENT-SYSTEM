@@ -368,8 +368,8 @@ function renderNapierPlots(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">🌱 Cultivation Plots</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">🌱 Cultivation Plots</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Track perpetual Napier grass plots, varieties, growth cycles, and repeated harvest history.
         </p>
       </div>
@@ -510,8 +510,8 @@ function renderNapierHarvesting(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">🌾 Production & Repeated Harvesting</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">🌾 Production & Repeated Harvesting</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Log cuts from cultivation plots. Automatically converts kg and tonnes, updates stock ledger, and capitalizes labour/cutting costs.
         </p>
       </div>
@@ -553,61 +553,66 @@ function renderNapierHarvesting(container) {
       </select>
     </div>
 
-    <!-- Harvests Table -->
-    <div class="table-container">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Ref & Date</th>
-            <th>Plot</th>
-            <th>Yield Quantity</th>
-            ${isFinance ? `
-              <th>Labour & Cutting</th>
-              <th>Transport & Other</th>
-              <th>Total Cost</th>
-              <th>Cost/kg</th>
-            ` : ''}
-            <th>Notes</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filteredHarvests.length === 0 ? `
+    <!-- Harvests Table Card -->
+    <div class="section-box" style="margin:0;">
+      <div class="section-box-header">
+        <div class="box-title"><span>🌾</span> Harvest Production Log</div>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
             <tr>
-              <td colspan="${isFinance ? 9 : 5}" style="text-align:center;padding:36px;color:var(--text-muted);">
-                No harvest cuts recorded yet. Click "Record New Harvest" to add a production run.
-              </td>
-            </tr>
-          ` : filteredHarvests.map(h => `
-            <tr>
-              <td>
-                <strong>${h.harvest_ref}</strong><br>
-                <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${h.harvest_date}</span>
-              </td>
-              <td>
-                <strong>${h.plot_name || 'Plot'}</strong><br>
-                <span style="font-size:0.75rem;color:var(--text-muted);">${h.plot_code || ''}</span>
-              </td>
-              <td>
-                <span style="font-size:0.95rem;font-weight:700;color:var(--primary-emerald);">${Number(h.quantity_kg).toLocaleString('en-IN')} kg</span><br>
-                <span style="font-size:0.75rem;color:var(--text-muted);">${(Number(h.quantity_kg) / 1000).toFixed(2)} tonnes</span>
-              </td>
+              <th>Ref & Date</th>
+              <th>Plot</th>
+              <th>Yield Quantity</th>
               ${isFinance ? `
-                <td>${formatCurrency(Number(h.labour_cost || 0) + Number(h.harvesting_cost || 0))}</td>
-                <td>${formatCurrency(Number(h.transport_cost || 0) + Number(h.other_cost || 0))}</td>
-                <td><strong>${formatCurrency(h.total_production_cost)}</strong></td>
-                <td><span style="font-weight:600;color:#059669;">₹${Number(h.cost_per_kg || 0).toFixed(2)}</span></td>
+                <th>Labour & Cutting</th>
+                <th>Transport & Other</th>
+                <th>Total Cost</th>
+                <th>Cost/kg</th>
               ` : ''}
-              <td style="max-width:180px;font-size:0.8rem;color:var(--text-secondary);">${h.notes || '—'}</td>
-              <td style="text-align:right;">
-                <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierHarvestConfirm('${h.id}')" title="Delete Harvest">
-                  🗑️
-                </button>
-              </td>
+              <th>Notes</th>
+              <th style="text-align:right;">Actions</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${filteredHarvests.length === 0 ? `
+              <tr>
+                <td colspan="${isFinance ? 9 : 5}" style="text-align:center;padding:36px;color:var(--text-muted);">
+                  No harvest cuts recorded yet. Click "Record New Harvest" to add a production run.
+                </td>
+              </tr>
+            ` : filteredHarvests.map(h => `
+              <tr>
+                <td>
+                  <strong>${h.harvest_ref}</strong><br>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${h.harvest_date}</span>
+                </td>
+                <td>
+                  <strong>${h.plot_name || 'Plot'}</strong><br>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">${h.plot_code || ''}</span>
+                </td>
+                <td>
+                  <span style="font-size:0.95rem;font-weight:700;color:var(--primary-emerald);">${Number(h.quantity_kg).toLocaleString('en-IN')} kg</span><br>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">${(Number(h.quantity_kg) / 1000).toFixed(2)} tonnes</span>
+                </td>
+                ${isFinance ? `
+                  <td>${formatCurrency(Number(h.labour_cost || 0) + Number(h.harvesting_cost || 0))}</td>
+                  <td>${formatCurrency(Number(h.transport_cost || 0) + Number(h.other_cost || 0))}</td>
+                  <td><strong>${formatCurrency(h.total_production_cost)}</strong></td>
+                  <td><span style="font-weight:600;color:#059669;">₹${Number(h.cost_per_kg || 0).toFixed(2)}</span></td>
+                ` : ''}
+                <td style="max-width:180px;font-size:0.8rem;color:var(--text-secondary);">${h.notes || '—'}</td>
+                <td style="text-align:right;">
+                  <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierHarvestConfirm('${h.id}')" title="Delete Harvest">
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -635,8 +640,8 @@ function renderNapierStock(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">📦 Independent Stock Ledger</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">📦 Independent Stock Ledger</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Source of truth inventory ledger. Strictly isolated from bale silage and goat feeds.
         </p>
       </div>
@@ -816,8 +821,8 @@ function renderNapierSales(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">💼 Sales & Invoices</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">💼 Sales & Invoices</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Create weight-based or bundle-based Napier invoices. Automatically validates available stock, deducts inventory, and tracks customer balances.
         </p>
       </div>
@@ -863,73 +868,78 @@ function renderNapierSales(container) {
       </select>
     </div>
 
-    <!-- Sales Table -->
-    <div class="table-container">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Invoice & Date</th>
-            <th>Customer</th>
-            <th>Pricing Method & Qty</th>
-            <th>Total Amount</th>
-            <th>Paid</th>
-            <th>Pending</th>
-            <th>Status</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filteredSales.length === 0 ? `
+    <!-- Sales Table Card -->
+    <div class="section-box" style="margin:0;">
+      <div class="section-box-header">
+        <div class="box-title"><span>💼</span> Sales & Invoices Ledger</div>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
             <tr>
-              <td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted);">
-                No sales invoices found. Click "New Napier Sale" to issue an invoice.
-              </td>
+              <th>Invoice & Date</th>
+              <th>Customer</th>
+              <th>Pricing Method & Qty</th>
+              <th>Total Amount</th>
+              <th>Paid</th>
+              <th>Pending</th>
+              <th>Status</th>
+              <th style="text-align:right;">Actions</th>
             </tr>
-          ` : filteredSales.map(s => `
-            <tr>
-              <td>
-                <strong>${s.invoice_no}</strong><br>
-                <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${s.sale_date}</span>
-              </td>
-              <td>
-                <strong>${s.customer_name || 'Customer'}</strong>
-              </td>
-              <td>
-                <span style="font-size:0.85rem;font-weight:600;">
-                  ${s.pricing_method === 'fixed_bundle' ? 'Bundle/Load Pricing' : 'Weight-Based Pricing'}
-                </span><br>
-                <span style="font-size:0.75rem;color:var(--text-muted);">
-                  ${s.quantity_sold} ${s.sale_unit || 'kg'} @ ₹${s.rate_per_unit}/${s.sale_unit || 'kg'}
-                  (${formatWeight(s.quantity_deducted_kg)})
-                </span>
-              </td>
-              <td><strong>${formatCurrency(s.total_amount)}</strong></td>
-              <td style="color:#059669;">${formatCurrency(s.amount_paid)}</td>
-              <td style="color:${Number(s.balance_pending) > 0 ? '#DC2626' : 'var(--text-muted)'};font-weight:${Number(s.balance_pending) > 0 ? '700' : 'normal'};">
-                ${formatCurrency(s.balance_pending)}
-              </td>
-              <td>
-                <span class="status-badge ${s.payment_status === 'Paid' ? 'status-ready' : s.payment_status === 'Partial' ? 'status-fermenting' : 'status-empty'}">
-                  ${s.payment_status}
-                </span>
-              </td>
-              <td style="text-align:right;white-space:nowrap;">
-                <button class="btn-secondary" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openNapierInvoiceDetailModal('${s.id}')" title="View / Print Invoice">
-                  📄 Print
-                </button>
-                ${Number(s.balance_pending) > 0 ? `
-                  <button class="btn-primary" style="padding:4px 8px;font-size:0.78rem;background:#10B981;" onclick="window.openNewNapierPaymentModal('${s.id}')" title="Collect Payment">
-                    💵 Collect
+          </thead>
+          <tbody>
+            ${filteredSales.length === 0 ? `
+              <tr>
+                <td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted);">
+                  No sales invoices found. Click "New Napier Sale" to issue an invoice.
+                </td>
+              </tr>
+            ` : filteredSales.map(s => `
+              <tr>
+                <td>
+                  <strong>${s.invoice_no}</strong><br>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${s.sale_date}</span>
+                </td>
+                <td>
+                  <strong>${s.customer_name || 'Customer'}</strong>
+                </td>
+                <td>
+                  <span style="font-size:0.85rem;font-weight:600;">
+                    ${s.pricing_method === 'fixed_bundle' ? 'Bundle/Load Pricing' : 'Weight-Based Pricing'}
+                  </span><br>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">
+                    ${s.quantity_sold} ${s.sale_unit || 'kg'} @ ₹${s.rate_per_unit}/${s.sale_unit || 'kg'}
+                    (${formatWeight(s.quantity_deducted_kg)})
+                  </span>
+                </td>
+                <td><strong>${formatCurrency(s.total_amount)}</strong></td>
+                <td style="color:#059669;">${formatCurrency(s.amount_paid)}</td>
+                <td style="color:${Number(s.balance_pending) > 0 ? '#DC2626' : 'var(--text-muted)'};font-weight:${Number(s.balance_pending) > 0 ? '700' : 'normal'};">
+                  ${formatCurrency(s.balance_pending)}
+                </td>
+                <td>
+                  <span class="status-badge ${s.payment_status === 'Paid' ? 'status-ready' : s.payment_status === 'Partial' ? 'status-fermenting' : 'status-empty'}">
+                    ${s.payment_status}
+                  </span>
+                </td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button class="btn-secondary" style="padding:4px 8px;font-size:0.78rem;" onclick="window.openNapierInvoiceDetailModal('${s.id}')" title="View / Print Invoice">
+                    📄 Print
                   </button>
-                ` : ''}
-                <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierSaleConfirm('${s.id}')" title="Delete Sale">
-                  🗑️
-                </button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+                  ${Number(s.balance_pending) > 0 ? `
+                    <button class="btn-primary" style="padding:4px 8px;font-size:0.78rem;background:#10B981;" onclick="window.openNewNapierPaymentModal('${s.id}')" title="Collect Payment">
+                      💵 Collect
+                    </button>
+                  ` : ''}
+                  <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierSaleConfirm('${s.id}')" title="Delete Sale">
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -964,8 +974,8 @@ function renderNapierExpenses(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">💸 Napier Operational Expenses</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">💸 Napier Operational Expenses</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Completely independent Napier cultivation, irrigation, fertilizer, and farm maintenance expenses.
         </p>
       </div>
@@ -1004,58 +1014,63 @@ function renderNapierExpenses(container) {
       </select>
     </div>
 
-    <!-- Expenses Table -->
-    <div class="table-container">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Ref & Date</th>
-            <th>Category</th>
-            <th>Description & Plot</th>
-            <th>Payee & Method</th>
-            <th>Amount</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filteredExpenses.length === 0 ? `
+    <!-- Expenses Table Card -->
+    <div class="section-box" style="margin:0;">
+      <div class="section-box-header">
+        <div class="box-title"><span>💸</span> Operational Expenses Ledger</div>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
             <tr>
-              <td colspan="6" style="text-align:center;padding:36px;color:var(--text-muted);">
-                No expenses logged for this filter.
-              </td>
+              <th>Ref & Date</th>
+              <th>Category</th>
+              <th>Description & Plot</th>
+              <th>Payee & Method</th>
+              <th>Amount</th>
+              <th style="text-align:right;">Actions</th>
             </tr>
-          ` : filteredExpenses.map(e => {
-            const plot = plots.find(p => p.id === e.plot_id);
-            return `
+          </thead>
+          <tbody>
+            ${filteredExpenses.length === 0 ? `
               <tr>
-                <td>
-                  <strong>${e.expense_ref}</strong><br>
-                  <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${e.expense_date}</span>
-                </td>
-                <td>
-                  <span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;background:rgba(16,185,129,0.1);color:#065F46;">
-                    ${e.category}
-                  </span>
-                </td>
-                <td>
-                  <strong>${e.description || e.category}</strong>
-                  ${plot ? `<br><span style="font-size:0.75rem;color:var(--text-muted);">Plot: ${plot.plot_name}</span>` : ''}
-                </td>
-                <td>
-                  <span>${e.payee || '—'}</span><br>
-                  <span style="font-size:0.75rem;color:var(--text-muted);">${e.payment_method}</span>
-                </td>
-                <td><strong style="color:#DC2626;font-size:0.95rem;">${formatCurrency(e.amount)}</strong></td>
-                <td style="text-align:right;">
-                  <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierExpenseConfirm('${e.id}')" title="Delete Expense">
-                    🗑️
-                  </button>
+                <td colspan="6" style="text-align:center;padding:36px;color:var(--text-muted);">
+                  No expenses logged for this filter.
                 </td>
               </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+            ` : filteredExpenses.map(e => {
+              const plot = plots.find(p => p.id === e.plot_id);
+              return `
+                <tr>
+                  <td>
+                    <strong>${e.expense_ref}</strong><br>
+                    <span style="font-size:0.75rem;color:var(--text-muted);">📅 ${e.expense_date}</span>
+                  </td>
+                  <td>
+                    <span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;background:rgba(16,185,129,0.1);color:#065F46;">
+                      ${e.category}
+                    </span>
+                  </td>
+                  <td>
+                    <strong>${e.description || e.category}</strong>
+                    ${plot ? `<br><span style="font-size:0.75rem;color:var(--text-muted);">Plot: ${plot.plot_name}</span>` : ''}
+                  </td>
+                  <td>
+                    <span>${e.payee || '—'}</span><br>
+                    <span style="font-size:0.75rem;color:var(--text-muted);">${e.payment_method}</span>
+                  </td>
+                  <td><strong style="color:#DC2626;font-size:0.95rem;">${formatCurrency(e.amount)}</strong></td>
+                  <td style="text-align:right;">
+                    <button class="btn-danger" style="padding:4px 8px;font-size:0.78rem;" onclick="window.deleteNapierExpenseConfirm('${e.id}')" title="Delete Expense">
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -1084,8 +1099,8 @@ function renderNapierPayments(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">👥 Customers, Payments & Receivables</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">👥 Customers, Payments & Receivables</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Strictly isolated customer directory, overdue invoices, and payment receipts for Napier grass.
         </p>
       </div>
@@ -1234,8 +1249,8 @@ function renderNapierReports(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <h2 style="font-size:1.3rem;font-weight:700;margin:0;">📈 Napier Financial & Yield Reports</h2>
-        <p style="font-size:0.83rem;color:var(--text-muted);margin:3px 0 0 0;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.35);">📈 Napier Financial & Yield Reports</h2>
+        <p style="font-size:0.83rem;color:#D1FAE5;margin:3px 0 0 0;">
           Strictly independent accounting. Production cost capitalization, weighted-average COGS, and realized profit/loss.
         </p>
       </div>
@@ -1724,19 +1739,19 @@ window.openNewNapierHarvestModal = function(preselectedPlotId) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
           <div>
             <label style="font-size:0.75rem;color:var(--text-muted);">Labour Cost (₹)</label>
-            <input type="number" step="0.01" min="0" id="nh_labour" class="form-input" value="0" oninput="window.updateHarvestCalc()">
+            <input type="number" step="0.01" min="0" id="nh_labour" class="form-input" value="0" placeholder="0" oninput="window.updateHarvestCalc()">
           </div>
           <div>
             <label style="font-size:0.75rem;color:var(--text-muted);">Cutting Machine Cost (₹)</label>
-            <input type="number" step="0.01" min="0" id="nh_cutting" class="form-input" value="0" oninput="window.updateHarvestCalc()">
+            <input type="number" step="0.01" min="0" id="nh_cutting" class="form-input" value="0" placeholder="0" oninput="window.updateHarvestCalc()">
           </div>
           <div>
             <label style="font-size:0.75rem;color:var(--text-muted);">Transport / Loading (₹)</label>
-            <input type="number" step="0.01" min="0" id="nh_transport" class="form-input" value="0" oninput="window.updateHarvestCalc()">
+            <input type="number" step="0.01" min="0" id="nh_transport" class="form-input" value="0" placeholder="0" oninput="window.updateHarvestCalc()">
           </div>
           <div>
             <label style="font-size:0.75rem;color:var(--text-muted);">Other In-field Costs (₹)</label>
-            <input type="number" step="0.01" min="0" id="nh_other" class="form-input" value="0" oninput="window.updateHarvestCalc()">
+            <input type="number" step="0.01" min="0" id="nh_other" class="form-input" value="0" placeholder="0" oninput="window.updateHarvestCalc()">
           </div>
         </div>
 
@@ -1940,26 +1955,63 @@ window.openNewNapierSaleModal = function() {
       </div>
 
       <!-- Customer & Date -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-          <label class="form-label">Customer *</label>
-          <div style="display:flex;gap:6px;">
-            <select id="ns_cust" class="form-input" style="flex:1;">
+      ${customers.length === 0 ? `
+        <div style="background:#F8FAFC;padding:12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <div style="font-weight:700;font-size:0.85rem;color:#0F172A;margin-bottom:8px;">Customer Information *</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Customer / Dairy Farm Name *</label>
+              <input type="text" id="ns_new_cust_name" class="form-input" required placeholder="e.g. Sri Balaji Dairy Farm">
+              <input type="hidden" id="ns_cust" value="__NEW__">
+            </div>
+            <div>
+              <label class="form-label">Sale Date *</label>
+              <input type="date" id="ns_date" class="form-input" required value="${store.getCurrentDate()}">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+            <div>
+              <label class="form-label">Phone Number (Optional)</label>
+              <input type="text" id="ns_new_cust_phone" class="form-input" placeholder="+91 98...">
+            </div>
+            <div>
+              <label class="form-label">Location / Village (Optional)</label>
+              <input type="text" id="ns_new_cust_address" class="form-input" placeholder="e.g. Warangal">
+            </div>
+          </div>
+        </div>
+      ` : `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <label class="form-label" style="margin:0;">Customer *</label>
+              <button type="button" class="btn-secondary" style="padding:2px 8px;font-size:0.75rem;" onclick="window.toggleNapierSaleNewCust()">＋ New</button>
+            </div>
+            <select id="ns_cust" class="form-input" onchange="window.handleNapierSaleCustChange(this.value)">
               ${customers.map(c => `<option value="${c.id}">${c.name} (${c.phone || 'No phone'})</option>`).join('')}
               <option value="__NEW__">＋ Add New Customer…</option>
             </select>
           </div>
+          <div>
+            <label class="form-label">Sale Date *</label>
+            <input type="date" id="ns_date" class="form-input" required value="${store.getCurrentDate()}">
+          </div>
         </div>
-        <div>
-          <label class="form-label">Sale Date *</label>
-          <input type="date" id="ns_date" class="form-input" required value="${store.getCurrentDate()}">
-        </div>
-      </div>
 
-      <div id="ns_new_cust_box" style="display:none;background:#F8FAFC;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-        <label class="form-label">New Customer Name *</label>
-        <input type="text" id="ns_new_cust_name" class="form-input" placeholder="e.g. Lakshmi Dairy Farm">
-      </div>
+        <div id="ns_new_cust_box" style="display:none;background:#F8FAFC;padding:12px;border-radius:10px;border:1px solid #CBD5E1;">
+          <div style="font-weight:700;font-size:0.83rem;color:#0F172A;margin-bottom:8px;">New Customer Details:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label class="form-label">Customer Name *</label>
+              <input type="text" id="ns_new_cust_name" class="form-input" placeholder="e.g. Lakshmi Dairy Farm">
+            </div>
+            <div>
+              <label class="form-label">Phone (Optional)</label>
+              <input type="text" id="ns_new_cust_phone" class="form-input" placeholder="+91 98...">
+            </div>
+          </div>
+        </div>
+      `}
 
       <!-- Pricing Method Toggle -->
       <div style="background:#F8FAFC;padding:14px;border-radius:10px;border:1px solid #E2E8F0;">
@@ -1987,11 +2039,11 @@ window.openNewNapierSaleModal = function() {
             </div>
             <div>
               <label class="form-label">Quantity *</label>
-              <input type="number" step="0.01" min="0.01" id="ns_weight_qty" class="form-input" placeholder="e.g. 2.5" oninput="window.updateSaleCalculations()">
+              <input type="number" step="0.01" min="0.01" id="ns_weight_qty" class="form-input" placeholder="0" oninput="window.updateSaleCalculations()">
             </div>
             <div>
               <label class="form-label">Rate / Unit (₹) *</label>
-              <input type="number" step="0.01" min="0" id="ns_weight_rate" class="form-input" placeholder="e.g. 3000" oninput="window.updateSaleCalculations()">
+              <input type="number" step="0.01" min="0" id="ns_weight_rate" class="form-input" placeholder="0" oninput="window.updateSaleCalculations()">
             </div>
           </div>
         </div>
@@ -2001,15 +2053,15 @@ window.openNewNapierSaleModal = function() {
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div>
               <label class="form-label">Bundle / Load Count *</label>
-              <input type="number" min="1" id="ns_bundle_count" class="form-input" placeholder="e.g. 50" oninput="window.updateSaleCalculations()">
+              <input type="number" min="1" id="ns_bundle_count" class="form-input" placeholder="0" oninput="window.updateSaleCalculations()">
             </div>
             <div>
               <label class="form-label">Rate / Bundle (₹) *</label>
-              <input type="number" step="0.01" min="0" id="ns_bundle_rate" class="form-input" placeholder="e.g. 80" oninput="window.updateSaleCalculations()">
+              <input type="number" step="0.01" min="0" id="ns_bundle_rate" class="form-input" placeholder="0" oninput="window.updateSaleCalculations()">
             </div>
             <div>
               <label class="form-label">Stock Weight Deducted (kg) *</label>
-              <input type="number" step="0.01" min="0.01" id="ns_bundle_deduct_kg" class="form-input" placeholder="Exact weight to deduct" oninput="window.updateSaleCalculations()">
+              <input type="number" step="0.01" min="0.01" id="ns_bundle_deduct_kg" class="form-input" placeholder="0" oninput="window.updateSaleCalculations()">
             </div>
           </div>
         </div>
@@ -2024,11 +2076,11 @@ window.openNewNapierSaleModal = function() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
           <label class="form-label">Transport Charges (₹)</label>
-          <input type="number" step="0.01" min="0" id="ns_transport" class="form-input" value="0" oninput="window.updateSaleCalculations()">
+          <input type="number" step="0.01" min="0" id="ns_transport" class="form-input" value="0" placeholder="0" oninput="window.updateSaleCalculations()">
         </div>
         <div>
           <label class="form-label">Other Loading/Delivery (₹)</label>
-          <input type="number" step="0.01" min="0" id="ns_other" class="form-input" value="0" oninput="window.updateSaleCalculations()">
+          <input type="number" step="0.01" min="0" id="ns_other" class="form-input" value="0" placeholder="0" oninput="window.updateSaleCalculations()">
         </div>
       </div>
 
@@ -2036,7 +2088,7 @@ window.openNewNapierSaleModal = function() {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div>
           <label class="form-label">Amount Paid Now (₹)</label>
-          <input type="number" step="0.01" min="0" id="ns_paid" class="form-input" value="0" oninput="window.updateSaleCalculations()">
+          <input type="number" step="0.01" min="0" id="ns_paid" class="form-input" value="0" placeholder="0" oninput="window.updateSaleCalculations()">
         </div>
         <div>
           <label class="form-label">Payment Method</label>
@@ -2081,9 +2133,17 @@ window.openNewNapierSaleModal = function() {
     </form>
   `;
 
-  document.getElementById('ns_cust').onchange = (e) => {
-    const isNew = e.target.value === '__NEW__';
-    document.getElementById('ns_new_cust_box').style.display = isNew ? 'block' : 'none';
+  window.handleNapierSaleCustChange = function(val) {
+    const box = document.getElementById('ns_new_cust_box');
+    if (box) box.style.display = (val === '__NEW__') ? 'block' : 'none';
+  };
+
+  window.toggleNapierSaleNewCust = function() {
+    const sel = document.getElementById('ns_cust');
+    if (sel) {
+      sel.value = '__NEW__';
+      window.handleNapierSaleCustChange('__NEW__');
+    }
   };
 
   window.toggleNapierPricingMethod = function() {
@@ -2148,14 +2208,16 @@ window.openNewNapierSaleModal = function() {
     btn.textContent = 'Processing…'; btn.disabled = true;
 
     try {
-      const custSelect = document.getElementById('ns_cust').value;
+      const custSelect = document.getElementById('ns_cust')?.value || '__NEW__';
       let customerId = custSelect;
       let customerName = '';
 
       if (custSelect === '__NEW__') {
-        customerName = document.getElementById('ns_new_cust_name').value.trim();
+        customerName = (document.getElementById('ns_new_cust_name')?.value || '').trim();
+        const customerPhone = (document.getElementById('ns_new_cust_phone')?.value || '').trim();
+        const customerAddress = (document.getElementById('ns_new_cust_address')?.value || '').trim();
         if (!customerName) throw new Error('Customer name is required.');
-        const newC = await store.addNapierCustomer({ name: customerName });
+        const newC = await store.addNapierCustomer({ name: customerName, phone: customerPhone, address: customerAddress });
         customerId = newC.id;
       } else {
         const cObj = customers.find(c => c.id === custSelect);

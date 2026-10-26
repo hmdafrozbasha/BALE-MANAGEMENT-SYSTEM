@@ -4423,5 +4423,64 @@ const style = document.createElement('style');
 style.textContent = `@keyframes spin{to{transform:rotate(360deg)}} @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}`;
 document.head.appendChild(style);
 
+// ─────────────────────────────────────────────────────────────────
+// UNIVERSAL SMART ZERO-CLEARING & AUTO-SELECT FOR NUMERIC INPUTS
+// Applicable across Bales, Goats, and Napier modules.
+// When user clicks/focuses on any input showing '0', it automatically clears
+// so they can immediately start typing without having to backspace the 0.
+// ─────────────────────────────────────────────────────────────────
+document.addEventListener('focusin', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  const isNumeric = el.type === 'number' || 
+                    el.getAttribute('inputmode') === 'numeric' ||
+                    el.getAttribute('inputmode') === 'decimal' ||
+                    el.classList.contains('form-input');
+  if (!isNumeric) return;
+
+  const val = (el.value || '').trim();
+  if (val === '0' || val === '0.00' || val === '0.0') {
+    el.setAttribute('data-had-zero', 'true');
+    el.value = '';
+    if (!el.placeholder) el.placeholder = '0';
+  } else if (el.type === 'number') {
+    setTimeout(() => {
+      try { el.select(); } catch(err) {}
+    }, 10);
+  }
+});
+
+document.addEventListener('focusout', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  const isNumeric = el.type === 'number' || el.getAttribute('inputmode') === 'numeric' || el.getAttribute('inputmode') === 'decimal';
+  if (isNumeric) {
+    if (!el.placeholder) el.placeholder = '0';
+    if (el.getAttribute('data-had-zero') === 'true') {
+      el.removeAttribute('data-had-zero');
+    }
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+  const val = (el.value || '').trim();
+  if (val === '0' || val === '0.00' || val === '0.0') {
+    el.setAttribute('data-had-zero', 'true');
+    el.value = '';
+    if (!el.placeholder) el.placeholder = '0';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+  if ((el.value === '0' || el.value === '0.0' || el.value === '0.00') && e.key && e.key.length === 1 && /[0-9]/.test(e.key)) {
+    el.value = '';
+  }
+});
+
 // Boot
 init();
