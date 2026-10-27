@@ -28,29 +28,9 @@
           <span class="nav-icon">📊</span>
           <span>Dashboard</span>
         </a>
-        <a class="nav-item" data-tab="plots">
-          <span class="nav-icon">🌱</span>
-          <span>Plots & Fermentation</span>
-        </a>
-        <a class="nav-item" data-tab="production">
-          <span class="nav-icon">🏭</span>
-          <span>Production Batches</span>
-        </a>
-        <a class="nav-item finance-required" data-tab="purchases">
-          <span class="nav-icon">🛒</span>
-          <span>Purchases & Suppliers</span>
-        </a>
-        <a class="nav-item finance-required" data-tab="sales">
-          <span class="nav-icon">💼</span>
-          <span>Sales & Invoices</span>
-        </a>
-        <a class="nav-item finance-required" data-tab="expenses">
-          <span class="nav-icon">💸</span>
-          <span>Expenses</span>
-        </a>
-        <a class="nav-item finance-required" data-tab="reports">
-          <span class="nav-icon">📈</span>
-          <span>Reports</span>
+        <a class="nav-item" data-tab="bale-management">
+          <span class="nav-icon">🌾</span>
+          <span>Bale Management</span>
         </a>
         <a class="nav-item" data-tab="goat-farming">
           <span class="nav-icon">🐐</span>
@@ -133,16 +113,16 @@
       <span class="m-icon">🏠</span>
       <span>Home</span>
     </button>
-    <button class="mobile-nav-btn" data-tab="plots">
-      <span class="m-icon">🌱</span>
-      <span>Plots</span>
+    <button class="mobile-nav-btn" data-tab="bale-management">
+      <span class="m-icon">🌾</span>
+      <span>Bales</span>
     </button>
     <button class="mobile-fab-btn" id="mobileFabBtn" title="Add New Entry" aria-label="Add New Entry">
       ＋
     </button>
-    <button class="mobile-nav-btn finance-required" data-tab="sales">
-      <span class="m-icon">💼</span>
-      <span>Sales</span>
+    <button class="mobile-nav-btn" data-tab="goat-farming">
+      <span class="m-icon">🐐</span>
+      <span>Goats</span>
     </button>
     <button class="mobile-nav-btn" id="mobileMoreBtn" aria-label="Open More Menu">
       <span class="m-icon">☰</span>
@@ -174,34 +154,14 @@
     </div>
 
     <nav class="mobile-drawer-nav">
-      <div class="mobile-nav-section-title">MAIN SECTIONS</div>
+      <div class="mobile-nav-section-title">CORE OPERATIONS</div>
       <a class="mobile-drawer-item active" data-tab="dashboard">
         <span class="nav-icon">📊</span>
         <span>Dashboard</span>
       </a>
-      <a class="mobile-drawer-item" data-tab="plots">
-        <span class="nav-icon">🌱</span>
-        <span>Plots & Fermentation</span>
-      </a>
-      <a class="mobile-drawer-item" data-tab="production">
-        <span class="nav-icon">🏭</span>
-        <span>Production Batches</span>
-      </a>
-      <a class="mobile-drawer-item finance-required" data-tab="purchases">
-        <span class="nav-icon">🛒</span>
-        <span>Purchases & Suppliers</span>
-      </a>
-      <a class="mobile-drawer-item finance-required" data-tab="sales">
-        <span class="nav-icon">💼</span>
-        <span>Sales & Invoices</span>
-      </a>
-      <a class="mobile-drawer-item finance-required" data-tab="expenses">
-        <span class="nav-icon">💸</span>
-        <span>Expenses</span>
-      </a>
-      <a class="mobile-drawer-item finance-required" data-tab="reports">
-        <span class="nav-icon">📈</span>
-        <span>Reports (P&L & Balances)</span>
+      <a class="mobile-drawer-item" data-tab="bale-management">
+        <span class="nav-icon">🌾</span>
+        <span>Bale Management</span>
       </a>
 
       <div class="mobile-nav-section-title" style="margin-top: 14px;">LIVESTOCK MODULE</div>
@@ -259,22 +219,16 @@
     </button>
   </div>
 
-  <!-- Mobile More Menu Popover (legacy fallback & quick sheet) -->
+  <!-- Mobile More Menu Popover (quick sheet) -->
   <div class="quick-menu-popover" id="moreMenuPopover" style="left: auto; right: 12px; bottom: 70px;">
+    <button class="quick-menu-item" data-tab="bale-management">
+      <span>🌾</span> <span>Bale Management</span>
+    </button>
     <button class="quick-menu-item" data-tab="goat-farming">
       <span>🐐</span> <span>Goat Farming</span>
     </button>
-    <button class="quick-menu-item finance-required" data-tab="purchases">
-      <span>🛒</span> <span>Purchases & Suppliers</span>
-    </button>
-    <button class="quick-menu-item" data-tab="production">
-      <span>🏭</span> <span>Production Batches</span>
-    </button>
-    <button class="quick-menu-item finance-required" data-tab="expenses">
-      <span>💸</span> <span>Expenses</span>
-    </button>
-    <button class="quick-menu-item finance-required" data-tab="reports">
-      <span>📈</span> <span>Reports (P&L & Balances)</span>
+    <button class="quick-menu-item" data-tab="napier-management">
+      <span>🌱</span> <span>Napier Management</span>
     </button>
     <button class="quick-menu-item" data-tab="settings">
       <span>⚙️</span> <span>Settings</span>

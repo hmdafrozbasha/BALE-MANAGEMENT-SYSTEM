@@ -2514,13 +2514,17 @@ body {
     font-size: 1.02rem;
   }
 
-  .goat-subnav-container {
+  .goat-subnav-container,
+  .napier-subnav-container,
+  .bale-subnav-container {
     padding: 6px 8px;
     margin-bottom: 18px;
     gap: 6px;
   }
 
-  .goat-subnav-btn {
+  .goat-subnav-btn,
+  .napier-subnav-btn,
+  .bale-subnav-btn {
     padding: 6px 12px;
     font-size: 0.78rem;
   }
@@ -2683,7 +2687,9 @@ body {
    GOAT FARMING MODULE — EMERALD LIQUID GLASS AESTHETICS
    ══════════════════════════════════════════════════════════════════ */
 
-.goat-subnav-container {
+.goat-subnav-container,
+.napier-subnav-container,
+.bale-subnav-container {
   display: inline-flex;
   max-width: 100%;
   align-items: center;
@@ -2700,11 +2706,15 @@ body {
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
   scrollbar-width: none;
 }
-.goat-subnav-container::-webkit-scrollbar {
+.goat-subnav-container::-webkit-scrollbar,
+.napier-subnav-container::-webkit-scrollbar,
+.bale-subnav-container::-webkit-scrollbar {
   display: none;
 }
 
-.goat-subnav-btn {
+.goat-subnav-btn,
+.napier-subnav-btn,
+.bale-subnav-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -2723,19 +2733,25 @@ body {
   user-select: none;
 }
 
-.goat-subnav-btn:focus {
+.goat-subnav-btn:focus,
+.napier-subnav-btn:focus,
+.bale-subnav-btn:focus {
   outline: none;
 }
 
 @media (hover: hover) {
-  .goat-subnav-btn:hover:not(.active) {
+  .goat-subnav-btn:hover:not(.active),
+  .napier-subnav-btn:hover:not(.active),
+  .bale-subnav-btn:hover:not(.active) {
     color: #FFFFFF;
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.15);
   }
 }
 
-.goat-subnav-btn.active {
+.goat-subnav-btn.active,
+.napier-subnav-btn.active,
+.bale-subnav-btn.active {
   color: #FFFFFF;
   background: linear-gradient(135deg, #10B981 0%, #087F5B 100%) !important;
   border-color: rgba(183, 243, 107, 0.5) !important;

@@ -7,6 +7,20 @@ window.renderNapierManagement = renderNapierManagement;
 
 // Application State
 let currentTab = 'dashboard';
+let currentBaleSubTab = 'dashboard';
+const BALE_TABS = ['dashboard', 'plots', 'production', 'purchases', 'sales', 'expenses', 'reports', 'bale-dashboard'];
+
+function isBaleTab(tab) {
+  return tab === 'bale-management' || BALE_TABS.includes(tab);
+}
+
+function getAppTarget() {
+  if (currentTab === 'bale-management') {
+    return document.getElementById('baleViewContent') || appContent;
+  }
+  return appContent;
+}
+
 let currentMonth = new Date().toISOString().slice(0,7);
 let activePlotFilter = 'ALL';
 let activePlotSection = 'ALL';
@@ -202,25 +216,44 @@ async function init() {
   hideAuthScreen();
   ensureEventsBound();
   updateRoleUI();
-  render();
+
+  const initialHash = window.location.hash.replace('#', '');
+  if (initialHash) {
+    navigateTo(initialHash);
+  } else {
+    render();
+  }
+
+  window.addEventListener('popstate', () => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      navigateTo(hash);
+    } else {
+      navigateTo('dashboard');
+    }
+  });
 
   // Live ticker for 1-minute fermentation countdown and auto-ready transitions
   setInterval(() => {
     if (!store.isAuthenticated()) return;
     const changed = store.checkFermentationStatus();
+    const isPlotsActive = currentTab === 'plots' || (currentTab === 'bale-management' && currentBaleSubTab === 'plots');
+    const isDashActive = currentTab === 'dashboard' || (currentTab === 'bale-management' && currentBaleSubTab === 'dashboard');
+    const isProdActive = currentTab === 'production' || (currentTab === 'bale-management' && currentBaleSubTab === 'production');
+
     if (changed) {
       dashboardMetrics = null;
       showToast('🌾 Fermentation completed! Bales are now READY for sale.');
-      if (currentTab === 'plots') renderPlots();
-      else if (currentTab === 'dashboard') renderDashboard();
-      else if (currentTab === 'production') renderProduction();
+      if (isPlotsActive) renderPlots();
+      else if (isDashActive) renderDashboard();
+      else if (isProdActive) renderProduction();
     } else {
-      if (currentTab === 'plots') {
+      if (isPlotsActive) {
         const hasMinuteCountdown = store.data.plots.some(p => p.status === 'Fermenting' && p.fermUnit === 'minute');
         if (hasMinuteCountdown) {
           renderPlots();
         }
-      } else if (currentTab === 'dashboard') {
+      } else if (isDashActive) {
         const countdownEls = document.querySelectorAll('.dash-batch-countdown');
         countdownEls.forEach(el => {
           const endTs = Number(el.getAttribute('data-end'));
@@ -361,32 +394,182 @@ function updateRoleUI() {
     roleNoticeBanner.classList.remove('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.add('hidden'));
     if (['purchases','sales','expenses','reports'].includes(currentTab)) currentTab = 'dashboard';
+    if (['purchases','sales','expenses','reports'].includes(currentBaleSubTab)) currentBaleSubTab = 'dashboard';
   } else {
     roleNoticeBanner.classList.add('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.remove('hidden'));
   }
 }
 
-function navigateTo(tab) {
+function navigateTo(tab, params) {
   if (!tab) return;
-  currentTab = tab;
+
+  if (params && params.status) {
+    activePlotFilter = params.status;
+  }
+
+  if (tab === 'bale-management') {
+    currentTab = 'bale-management';
+  } else if (tab === 'bale-dashboard') {
+    currentTab = 'bale-management';
+    currentBaleSubTab = 'dashboard';
+  } else if (BALE_TABS.includes(tab) && tab !== 'dashboard') {
+    currentTab = 'bale-management';
+    currentBaleSubTab = tab;
+  } else {
+    currentTab = tab;
+  }
+
   document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-    item.classList.toggle('active', item.getAttribute('data-tab') === tab);
+    const itemTab = item.getAttribute('data-tab');
+    if (itemTab === 'bale-management') {
+      item.classList.toggle('active', currentTab === 'bale-management');
+    } else {
+      item.classList.toggle('active', currentTab === itemTab);
+    }
   });
+
   document.querySelectorAll('.mobile-bottom-bar .mobile-nav-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+    const btnTab = btn.getAttribute('data-tab');
+    if (btnTab === 'bale-management') {
+      btn.classList.toggle('active', currentTab === 'bale-management');
+    } else {
+      btn.classList.toggle('active', currentTab === btnTab);
+    }
   });
+
   document.querySelectorAll('.mobile-drawer-nav .mobile-drawer-item').forEach(item => {
-    item.classList.toggle('active', item.getAttribute('data-tab') === tab);
+    const itemTab = item.getAttribute('data-tab');
+    if (itemTab === 'bale-management') {
+      item.classList.toggle('active', currentTab === 'bale-management');
+    } else {
+      item.classList.toggle('active', currentTab === itemTab);
+    }
   });
+
   const mobileNavDrawer = document.getElementById('mobileNavDrawer');
   const mobileNavBackdrop = document.getElementById('mobileNavBackdrop');
   if (mobileNavDrawer) mobileNavDrawer.classList.remove('open');
   if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('open');
+
+  try {
+    const hashTarget = currentTab === 'bale-management'
+      ? (currentBaleSubTab === 'dashboard' ? 'bale-management' : currentBaleSubTab)
+      : currentTab;
+    if (window.location.hash.replace('#', '') !== hashTarget) {
+      window.history.pushState(null, '', '#' + hashTarget);
+    }
+  } catch(e) {}
+
   render();
 }
 window.navigateTo = navigateTo;
 window.appNav = navigateTo;
+
+export function switchBaleTab(tab) {
+  currentBaleSubTab = tab;
+  try {
+    const hashTarget = currentBaleSubTab === 'dashboard' ? 'bale-management' : currentBaleSubTab;
+    if (window.location.hash.replace('#', '') !== hashTarget) {
+      window.history.pushState(null, '', '#' + hashTarget);
+    }
+  } catch(e) {}
+  renderBaleManagement();
+}
+window.switchBaleTab = switchBaleTab;
+
+export async function renderBaleManagement(subTab) {
+  if (subTab) currentBaleSubTab = subTab;
+  currentTab = 'bale-management';
+  pageTitle.textContent = '🌾 Bale Management';
+
+  const appContent = document.getElementById('appContent');
+  if (!appContent) return;
+
+  const isFinance = store.canViewFinancials();
+
+  // If subnav already exists in DOM, preserve scroll position & only update active state + view content
+  const existingSubnav = appContent.querySelector('.bale-subnav-container');
+  const existingContent = document.getElementById('baleViewContent');
+
+  if (existingSubnav && existingContent) {
+    existingSubnav.querySelectorAll('.bale-subnav-btn').forEach(btn => {
+      const match = btn.getAttribute('data-subtab') === currentBaleSubTab;
+      btn.classList.toggle('active', match);
+      if (match) {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    });
+    await renderActiveBaleSubView();
+    return;
+  }
+
+  appContent.innerHTML = `
+    <!-- Bale Module Sub-Navigation Bar -->
+    <div class="bale-subnav-container">
+      <button class="bale-subnav-btn ${currentBaleSubTab === 'dashboard' ? 'active' : ''}" data-subtab="dashboard" onclick="window.switchBaleTab('dashboard')">
+        <span>📊</span> <span>Bale Dashboard</span>
+      </button>
+      <button class="bale-subnav-btn ${currentBaleSubTab === 'plots' ? 'active' : ''}" data-subtab="plots" onclick="window.switchBaleTab('plots')">
+        <span>🌱</span> <span>Plots & Fermentation</span>
+      </button>
+      <button class="bale-subnav-btn ${currentBaleSubTab === 'production' ? 'active' : ''}" data-subtab="production" onclick="window.switchBaleTab('production')">
+        <span>🏭</span> <span>Production Batches</span>
+      </button>
+      ${isFinance ? `
+        <button class="bale-subnav-btn ${currentBaleSubTab === 'purchases' ? 'active' : ''}" data-subtab="purchases" onclick="window.switchBaleTab('purchases')">
+          <span>🛒</span> <span>Purchases & Suppliers</span>
+        </button>
+        <button class="bale-subnav-btn ${currentBaleSubTab === 'sales' ? 'active' : ''}" data-subtab="sales" onclick="window.switchBaleTab('sales')">
+          <span>💼</span> <span>Sales & Invoices</span>
+        </button>
+        <button class="bale-subnav-btn ${currentBaleSubTab === 'expenses' ? 'active' : ''}" data-subtab="expenses" onclick="window.switchBaleTab('expenses')">
+          <span>💸</span> <span>Expenses</span>
+        </button>
+        <button class="bale-subnav-btn ${currentBaleSubTab === 'reports' ? 'active' : ''}" data-subtab="reports" onclick="window.switchBaleTab('reports')">
+          <span>📈</span> <span>Reports</span>
+        </button>
+      ` : ''}
+    </div>
+
+    <!-- Active Sub-View Content Container -->
+    <div id="baleViewContent"></div>
+  `;
+
+  await renderActiveBaleSubView();
+}
+window.renderBaleManagement = renderBaleManagement;
+
+async function renderActiveBaleSubView() {
+  const container = document.getElementById('baleViewContent');
+  if (!container) return;
+
+  switch (currentBaleSubTab) {
+    case 'dashboard':
+      await renderDashboard();
+      break;
+    case 'plots':
+      renderPlots();
+      break;
+    case 'production':
+      renderProduction();
+      break;
+    case 'purchases':
+      renderPurchases();
+      break;
+    case 'sales':
+      await renderSales();
+      break;
+    case 'expenses':
+      await renderExpenses();
+      break;
+    case 'reports':
+      renderReports();
+      break;
+    default:
+      await renderDashboard();
+  }
+}
 
 async function render() {
   switch (currentTab) {
@@ -394,29 +577,21 @@ async function render() {
       pageTitle.textContent = store.getRole() === 'Staff' ? 'Staff Yard Dashboard' : 'Owner Dashboard';
       await renderDashboard();
       break;
+    case 'bale-management':
+      pageTitle.textContent = '🌾 Bale Management';
+      await renderBaleManagement();
+      break;
     case 'plots':
-      pageTitle.textContent = 'Plots and Fermentation';
-      renderPlots();
-      break;
     case 'production':
-      pageTitle.textContent = 'Production Batches';
-      renderProduction();
-      break;
     case 'purchases':
-      pageTitle.textContent = 'Purchases and Supplier Balances';
-      renderPurchases();
-      break;
     case 'sales':
-      pageTitle.textContent = 'Sales, Invoices & Customer Credit';
-      await renderSales();
-      break;
     case 'expenses':
-      pageTitle.textContent = 'Business Expenses';
-      await renderExpenses();
-      break;
     case 'reports':
-      pageTitle.textContent = 'Financial & Stock Reports';
-      renderReports();
+    case 'bale-dashboard':
+      currentTab = 'bale-management';
+      currentBaleSubTab = currentTab === 'bale-dashboard' ? 'dashboard' : currentTab;
+      pageTitle.textContent = '🌾 Bale Management';
+      await renderBaleManagement(currentBaleSubTab);
       break;
     case 'settings':
       pageTitle.textContent = 'System & Yard Settings';
@@ -430,7 +605,8 @@ async function render() {
       pageTitle.textContent = '🌱 Napier Management';
       renderNapierManagement();
       break;
-    default: await renderDashboard();
+    default:
+      await renderDashboard();
   }
 }
 
@@ -485,7 +661,7 @@ async function renderDashboard() {
   const readyW = stageTotal > 0 ? Math.round((stageReady / stageTotal) * 100) : 0;
   const soldW = stageTotal > 0 ? Math.max(0, 100 - rawW - fermW - readyW) : 0;
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div class="dashboard-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:14px;">
       <div style="font-size:0.95rem;color:var(--text-sub);line-height:1.4;">
         Overview for <strong style="color:#ffffff;">${m.role}</strong> • All bale operations & real-time accounts
@@ -747,7 +923,7 @@ function renderPlots() {
   const emptyPlots = plots.filter(p => p.status === 'Empty').length;
   const sections = [...new Set(plots.map(p => p.section))].sort();
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div class="plots-controls-bar">
       <div class="filters-group">
         <span style="font-size:0.85rem;font-weight:700;color:var(--text-sub);margin-right:4px;">Section:</span>
@@ -1094,9 +1270,12 @@ window.fastFermentPlot = async function(plotName) {
       dashboardMetrics = null;
       closeModal();
       showToast(`⚡ Plot ${plotName} marked READY for sale!`);
-      if (currentTab === 'plots') renderPlots();
-      else if (currentTab === 'dashboard') await renderDashboard();
-      else if (currentTab === 'production') renderProduction();
+      const isPlotsActive = currentTab === 'plots' || (currentTab === 'bale-management' && currentBaleSubTab === 'plots');
+      const isDashActive = currentTab === 'dashboard' || (currentTab === 'bale-management' && currentBaleSubTab === 'dashboard');
+      const isProdActive = currentTab === 'production' || (currentTab === 'bale-management' && currentBaleSubTab === 'production');
+      if (isPlotsActive) renderPlots();
+      else if (isDashActive) await renderDashboard();
+      else if (isProdActive) renderProduction();
     }
   } catch(err) {
     hideLoading();
@@ -1109,12 +1288,12 @@ window.fastFermentPlot = async function(plotName) {
 // ─────────────────────────────────────────────────────────────────
 function renderPurchases() {
   const isFinance = store.canViewFinancials();
-  if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access purchase prices and supplier financials.</div>`; return; }
+  if (!isFinance) { getAppTarget().innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access purchase prices and supplier financials.</div>`; return; }
 
   const purchases = store.data.purchases;
   const suppliers = store.data.suppliers;
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">True landed cost calculation, bill attachments, and supplier payables ledger.</div>
       <button class="btn-primary" onclick="window.openNewPurchaseModal()">＋ New Purchase Bill</button>
@@ -1722,7 +1901,7 @@ function renderProduction() {
   const batches = store.data.batches;
   const isFinance = store.canViewFinancials();
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">Turn raw material into numbered batches and calculate exact cost per bale.</div>
       <button class="btn-primary" onclick="window.openNewBatchModal()">＋ New Production Batch</button>
@@ -2083,7 +2262,7 @@ window.openNewBatchModal = function() {
 // ─────────────────────────────────────────────────────────────────
 async function renderSales() {
   const isFinance = store.canViewFinancials();
-  if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access sales invoices and customer credit records.</div>`; return; }
+  if (!isFinance) { getAppTarget().innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access sales invoices and customer credit records.</div>`; return; }
 
   const sales = store.data.sales;
   const customers = store.data.customers;
@@ -2100,7 +2279,7 @@ async function renderSales() {
     attMap.get(k).push(a);
   });
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">Sell from ready stock, issue invoices, track credit limits, maintain append-only payment histories.</div>
       <div style="display:flex;gap:10px;">
@@ -2915,7 +3094,7 @@ window.openCustomerDetail = function(customerId) {
 // ─────────────────────────────────────────────────────────────────
 async function renderExpenses() {
   const isFinance = store.canViewFinancials();
-  if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access operating expenses.</div>`; return; }
+  if (!isFinance) { getAppTarget().innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access operating expenses.</div>`; return; }
 
   const expenses = store.data.expenses;
   const totalAmt = expenses.reduce((s,e) => s + (Number(e.amount)||0), 0);
@@ -2931,7 +3110,7 @@ async function renderExpenses() {
     attMap.get(k).push(a);
   });
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:0.9rem;color:var(--text-sub);">Record every business expense so profit is always based on real numbers. Total: <strong>${store.formatINR(totalAmt)}</strong></div>
       <button class="btn-primary" onclick="window.openNewExpenseModal()">＋ Add Expense</button>
@@ -3174,9 +3353,9 @@ window.deleteExpense = async function(id) {
 // ─────────────────────────────────────────────────────────────────
 function renderReports() {
   const isFinance = store.canViewFinancials();
-  if (!isFinance) { appContent.innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access financial reports.</div>`; return; }
+  if (!isFinance) { getAppTarget().innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access financial reports.</div>`; return; }
 
-  appContent.innerHTML = `
+  getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div class="filters-group">
         <button class="filter-chip ${activeReportTab==='pnl'?'active':''}" onclick="window.switchReport('pnl')">📊 Profit & Loss</button>
