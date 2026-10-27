@@ -685,13 +685,6 @@ async function renderDashboard() {
         await renderDashboard();
       });
     }
-
-    const btnAdd = document.getElementById('btnEmptyAddEntry');
-    if (btnAdd) {
-      btnAdd.addEventListener('click', () => {
-        toggleQuickMenu();
-      });
-    }
   }
 
   if (!m.hasData) {
@@ -774,19 +767,6 @@ async function renderDashboard() {
           ">
             <span>📅</span>
             <span>Back to Current Month (${currentMonthLabel})</span>
-          </button>
-          <button id="btnEmptyAddEntry" class="btn-secondary" style="
-            padding: 10px 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.08);
-            color: #DDFCE8;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 9999px;
-            cursor: pointer;
-          ">
-            <span>＋</span>
-            <span>Add New Entry</span>
           </button>
         </div>
       </div>
