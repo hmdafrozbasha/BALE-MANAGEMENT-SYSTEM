@@ -1305,7 +1305,7 @@ function renderPnLReport(summary) {
   const netMargin = summary.salesRevenue > 0 ? ((summary.netProfit / summary.salesRevenue) * 100).toFixed(1) : 0;
 
   return `
-    <div class="section-box" style="margin:0;max-width:800px;">
+    <div class="section-box" style="margin:0;width:100%;">
       <div class="section-box-header" style="text-align:center;border-bottom:2px solid #E2E8F0;padding-bottom:14px;">
         <div style="font-size:0.8rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:1px;font-weight:700;">NAPIER ENTERPRISE</div>
         <h3 style="font-size:1.4rem;font-weight:800;margin:4px 0;">Statement of Profit and Loss</h3>
