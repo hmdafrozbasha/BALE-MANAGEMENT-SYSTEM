@@ -805,19 +805,23 @@ body {
   color: #071D16;
 }
 
-.data-table-wrapper {
+.data-table-wrapper,
+.table-container {
+  width: 100%;
   overflow-x: auto;
   border-radius: var(--radius-md);
 }
 
-.app-table {
+.app-table,
+.data-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.9rem;
 }
 
-.app-table th {
+.app-table th,
+.data-table th {
   padding: 13px 16px;
   background-color: rgba(11, 48, 36, 0.04);
   color: #0B3024;
@@ -829,14 +833,16 @@ body {
   white-space: nowrap;
 }
 
-.app-table td {
+.app-table td,
+.data-table td {
   padding: 13px 16px;
   border-bottom: 1px solid rgba(11, 48, 36, 0.06);
   color: #14231D;
   vertical-align: middle;
 }
 
-.app-table tr:hover td {
+.app-table tr:hover td,
+.data-table tr:hover td {
   background-color: rgba(16, 185, 129, 0.04);
 }
 
@@ -3042,7 +3048,14 @@ body {
 }
 
 #napierViewContent .table-container {
+  width: 100%;
+  overflow-x: auto;
   background: transparent;
+}
+
+#napierViewContent .data-table {
+  width: 100%;
+  min-width: 100%;
 }
 
 /* Universal Smart Zero Numeric Inputs Styling */

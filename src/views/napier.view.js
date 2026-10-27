@@ -522,23 +522,23 @@ function renderNapierHarvesting(container) {
     </div>
 
     <!-- Stat Bar -->
-    <div style="display:flex;gap:16px;background:rgba(255,255,255,0.9);padding:14px 20px;border-radius:12px;margin-bottom:18px;border:1px solid rgba(0,0,0,0.06);flex-wrap:wrap;">
-      <div>
-        <div style="font-size:0.75rem;color:var(--text-muted);">Total Cuts Logged</div>
-        <div style="font-size:1.2rem;font-weight:700;">${filteredHarvests.length}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;background:rgba(255,255,255,0.92);padding:16px 20px;border-radius:12px;margin-bottom:18px;border:1px solid rgba(0,0,0,0.06);width:100%;">
+      <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+        <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Cuts Logged</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--text-primary);margin-top:2px;">${filteredHarvests.length}</div>
       </div>
-      <div style="border-left:1px solid #E2E8F0;padding-left:16px;">
-        <div style="font-size:0.75rem;color:var(--text-muted);">Total Harvested Biomass</div>
-        <div style="font-size:1.2rem;font-weight:700;color:var(--primary-emerald);">${formatWeight(totalHarvestsKg)}</div>
+      <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+        <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Harvested Biomass</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--primary-emerald);margin-top:2px;">${formatWeight(totalHarvestsKg)}</div>
       </div>
       ${isFinance ? `
-        <div style="border-left:1px solid #E2E8F0;padding-left:16px;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Total Production Cost</div>
-          <div style="font-size:1.2rem;font-weight:700;">${formatCurrency(totalCost)}</div>
+        <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Production Cost</div>
+          <div style="font-size:1.3rem;font-weight:800;color:var(--text-primary);margin-top:2px;">${formatCurrency(totalCost)}</div>
         </div>
-        <div style="border-left:1px solid #E2E8F0;padding-left:16px;">
-          <div style="font-size:0.75rem;color:var(--text-muted);">Avg Cost Basis</div>
-          <div style="font-size:1.2rem;font-weight:700;color:#059669;">₹${avgCostKg.toFixed(2)} / kg</div>
+        <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Avg Cost Basis</div>
+          <div style="font-size:1.3rem;font-weight:800;color:#059669;margin-top:2px;">₹${avgCostKg.toFixed(2)} / kg</div>
         </div>
       ` : ''}
     </div>
@@ -986,14 +986,14 @@ function renderNapierExpenses(container) {
     </div>
 
     <!-- Expenses Stat Bar -->
-    <div style="display:flex;gap:20px;background:rgba(255,255,255,0.9);padding:14px 20px;border-radius:12px;margin-bottom:18px;border:1px solid rgba(0,0,0,0.06);align-items:center;">
-      <div>
-        <div style="font-size:0.75rem;color:var(--text-muted);">Total Operational Expenses</div>
-        <div style="font-size:1.3rem;font-weight:800;color:#DC2626;">${formatCurrency(totalExpenseAmount)}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;background:rgba(255,255,255,0.92);padding:16px 20px;border-radius:12px;margin-bottom:18px;border:1px solid rgba(0,0,0,0.06);width:100%;">
+      <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+        <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Operational Expenses</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#DC2626;margin-top:2px;">${formatCurrency(totalExpenseAmount)}</div>
       </div>
-      <div style="border-left:1px solid #E2E8F0;padding-left:20px;">
-        <div style="font-size:0.75rem;color:var(--text-muted);">Logged Records</div>
-        <div style="font-size:1.1rem;font-weight:700;">${filteredExpenses.length} entries</div>
+      <div style="background:rgba(248,250,252,0.9);padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+        <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Logged Records</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--text-primary);margin-top:2px;">${filteredExpenses.length} entries</div>
       </div>
     </div>
 
