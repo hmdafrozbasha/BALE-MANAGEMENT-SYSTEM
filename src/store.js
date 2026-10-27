@@ -684,6 +684,48 @@ class Store {
   // ─── Dashboard Metrics (from Supabase RPC) ───────────────────────
   async getDashboardMetricsAsync(month) {
     try {
+      const todayStr = this.getCurrentDate ? this.getCurrentDate() : new Date().toISOString().slice(0, 10);
+      const actualCurrentMonth = todayStr.slice(0, 7);
+      const isCurrentMonth = month === actualCurrentMonth;
+
+      const storeSales = this.data.sales || [];
+      const storePurchases = this.data.purchases || [];
+      const storeExpenses = this.data.expenses || [];
+      const storeBatches = this.data.batches || [];
+
+      const salesInMonth = storeSales.filter(s => (s.invoice_date || s.date || '').startsWith(month));
+      const purchasesInMonth = storePurchases.filter(p => (p.purchase_date || p.date || '').startsWith(month));
+      const expensesInMonth = storeExpenses.filter(e => (e.expense_date || e.date || '').startsWith(month));
+      const batchesInMonth = storeBatches.filter(b => (b.production_date || b.date || b.created_at || '').startsWith(month));
+
+      const monthActivityCount = salesInMonth.length + purchasesInMonth.length + expensesInMonth.length + batchesInMonth.length;
+      const hasData = isCurrentMonth ? true : (monthActivityCount > 0);
+
+      if (!hasData) {
+        return {
+          role: this.getRole(),
+          hasData: false,
+          isCurrentMonth: false,
+          monthActivityCount: 0,
+          readyBales: 0,
+          fermentingBales: 0,
+          customerDues: 0,
+          supplierDues: 0,
+          monthSales: 0,
+          monthCOGS: 0,
+          monthExpenses: 0,
+          grossProfit: 0,
+          netProfit: 0,
+          totalHayPurchasedKg: 0,
+          totalHayConsumedKg: 0,
+          rawMaterialKg: 0,
+          rawMaterialBalesEquiv: 0,
+          monthSoldBales: 0,
+          batchesReadySoon: [],
+          upcomingPayments: []
+        };
+      }
+
       // Only getBatchesReadySoon needs a network call (join data).
       // All financial metrics computed from in-memory store -- instant.
       let batchesSoon = [];
@@ -722,10 +764,6 @@ class Store {
         });
 
       // Reconcile live sales metrics to guarantee dashboard reflects latest data immediately
-      const storeSales = this.data.sales || [];
-      const storePurchases = this.data.purchases || [];
-      const storeExpenses = this.data.expenses || [];
-
       const calcCustomerDues = storeSales.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
       const calcSupplierDues = storePurchases.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
       const calcMonthSales = storeSales
@@ -741,9 +779,6 @@ class Store {
         .filter(s => (s.invoice_date || s.date || '').startsWith(month))
         .reduce((s,r) => s + (Number(r.bales_count ?? r.balesCount ?? (r.sale_line_items || []).reduce((sb, li) => sb + (Number(li.bales_sold) || 0), 0)) || 0), 0);
 
-      // Dashboard metrics always reflect actual loaded store records (0 when empty or reset)
-      const customerDues = calcCustomerDues;
-      const supplierDues = calcSupplierDues;
       const monthSales = calcMonthSales;
       const monthCOGS = calcMonthCOGS;
       const monthExpenses = calcMonthExpenses;
@@ -754,8 +789,7 @@ class Store {
       // Reconcile upcoming payments if RPC list is empty
       let upcomingList = payments && payments.length > 0 ? payments : [];
       if (upcomingList.length === 0) {
-        const todayStr = this.getCurrentDate();
-        const custDues = storeSales
+        const custDues = (isCurrentMonth ? storeSales : salesInMonth)
           .filter(s => (Number(s.balance_pending ?? s.balancePending) || 0) > 0)
           .map(s => {
             const dueDate = s.due_date || s.dueDate || '';
@@ -767,7 +801,7 @@ class Store {
               isOverdue: dueDate && new Date(dueDate) < new Date(todayStr)
             };
           });
-        const supDues = storePurchases
+        const supDues = (isCurrentMonth ? storePurchases : purchasesInMonth)
           .filter(p => (Number(p.balance_pending ?? p.balancePending) || 0) > 0)
           .map(p => {
             const dueDate = p.payment_due_date || p.paymentDueDate || '';
@@ -782,25 +816,62 @@ class Store {
         upcomingList = [...custDues, ...supDues].sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
       }
 
-      return {
-        role: this.getRole(),
-        readyBales: plotsReady > 0 ? plotsReady : (metrics?.ready_bales || 0),
-        fermentingBales: plotsFerm === 0 ? 0 : (metrics?.fermenting_bales || plotsFerm),
-        customerDues,
-        supplierDues,
-        monthSales,
-        monthCOGS,
-        monthExpenses,
-        grossProfit,
-        netProfit,
-        totalHayPurchasedKg,
-        totalHayConsumedKg,
-        rawMaterialKg: realRawKg,
-        rawMaterialBalesEquiv: Math.round(realRawKg / 28),
-        monthSoldBales,
-        batchesReadySoon: filteredBatchesSoon,
-        upcomingPayments: upcomingList
-      };
+      if (isCurrentMonth) {
+        return {
+          role: this.getRole(),
+          hasData: true,
+          isCurrentMonth: true,
+          monthActivityCount,
+          readyBales: plotsReady > 0 ? plotsReady : (metrics?.ready_bales || 0),
+          fermentingBales: plotsFerm === 0 ? 0 : (metrics?.fermenting_bales || plotsFerm),
+          customerDues: calcCustomerDues,
+          supplierDues: calcSupplierDues,
+          monthSales,
+          monthCOGS,
+          monthExpenses,
+          grossProfit,
+          netProfit,
+          totalHayPurchasedKg,
+          totalHayConsumedKg,
+          rawMaterialKg: realRawKg,
+          rawMaterialBalesEquiv: Math.round(realRawKg / 28),
+          monthSoldBales,
+          batchesReadySoon: filteredBatchesSoon,
+          upcomingPayments: upcomingList
+        };
+      } else {
+        // Historical month with recorded activity
+        const histBatchesBales = batchesInMonth.reduce((s, b) => s + (Number(b.bales_produced ?? b.bales) || 0), 0);
+        const histCustomerDues = salesInMonth.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+        const histSupplierDues = purchasesInMonth.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+        const histHayPurchased = purchasesInMonth
+          .filter(p => (p.raw_material || p.item || '').toLowerCase().includes('hay'))
+          .reduce((s, p) => s + (Number(p.quantity_kg ?? p.quantity) || 0), 0);
+        const histHayConsumed = batchesInMonth.reduce((s, b) => s + (Number(b.hay_kg ?? b.raw_material_kg ?? b.quantity_kg) || 0), 0);
+
+        return {
+          role: this.getRole(),
+          hasData: true,
+          isCurrentMonth: false,
+          monthActivityCount,
+          readyBales: histBatchesBales,
+          fermentingBales: 0,
+          customerDues: histCustomerDues,
+          supplierDues: histSupplierDues,
+          monthSales,
+          monthCOGS,
+          monthExpenses,
+          grossProfit,
+          netProfit,
+          totalHayPurchasedKg: histHayPurchased,
+          totalHayConsumedKg: histHayConsumed,
+          rawMaterialKg: Math.max(0, histHayPurchased - histHayConsumed),
+          rawMaterialBalesEquiv: Math.round(Math.max(0, histHayPurchased - histHayConsumed) / 28),
+          monthSoldBales,
+          batchesReadySoon: [],
+          upcomingPayments: upcomingList
+        };
+      }
     } catch(e) {
       console.warn('Dashboard metrics error, using local fallback:', e);
       return this.getDashboardMetrics(month);
@@ -809,76 +880,155 @@ class Store {
 
   // Sync fallback for template rendering (uses cached data)
   getDashboardMetrics(month) {
-    const today = this.getCurrentDate();
+    const todayStr = this.getCurrentDate ? this.getCurrentDate() : new Date().toISOString().slice(0, 10);
+    const actualCurrentMonth = todayStr.slice(0, 7);
+    const isCurrentMonth = month === actualCurrentMonth;
     const fermDays = this.data.settings.fermentationDays || 30;
+
+    const storeSales = this.data.sales || [];
+    const storePurchases = this.data.purchases || [];
+    const storeExpenses = this.data.expenses || [];
+    const storeBatches = this.data.batches || [];
+
+    const salesInMonth = storeSales.filter(s => (s.invoice_date || s.date || '').startsWith(month));
+    const purchasesInMonth = storePurchases.filter(p => (p.purchase_date || p.date || '').startsWith(month));
+    const expensesInMonth = storeExpenses.filter(e => (e.expense_date || e.date || '').startsWith(month));
+    const batchesInMonth = storeBatches.filter(b => (b.production_date || b.date || b.created_at || '').startsWith(month));
+
+    const monthActivityCount = salesInMonth.length + purchasesInMonth.length + expensesInMonth.length + batchesInMonth.length;
+    const hasData = isCurrentMonth ? true : (monthActivityCount > 0);
+
+    if (!hasData) {
+      return {
+        role: this.getRole(),
+        hasData: false,
+        isCurrentMonth: false,
+        monthActivityCount: 0,
+        readyBales: 0,
+        fermentingBales: 0,
+        customerDues: 0,
+        supplierDues: 0,
+        monthSales: 0,
+        monthCOGS: 0,
+        monthExpenses: 0,
+        grossProfit: 0,
+        netProfit: 0,
+        totalHayPurchasedKg: 0,
+        totalHayConsumedKg: 0,
+        rawMaterialKg: 0,
+        rawMaterialBalesEquiv: 0,
+        monthSoldBales: 0,
+        batchesReadySoon: [],
+        upcomingPayments: []
+      };
+    }
 
     const readyBales = this.data.plots.filter(p => p.status === 'Ready').reduce((s,p) => s + (p.bales||0), 0);
     const fermentingBales = this.data.plots.filter(p => p.status === 'Fermenting').reduce((s,p) => s + (p.bales||0), 0);
     const customerDues = this.data.sales.reduce((s,r) => s + (Number(r.balance_pending||r.balancePending)||0), 0);
     const supplierDues = this.data.purchases.reduce((s,r) => s + (Number(r.balance_pending||r.balancePending)||0), 0);
-    const monthSales = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.invoice_total||r.invoiceTotal)||0), 0);
-    const monthCOGS = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.cogs_total||r.cogsTotal)||0), 0);
-    const monthExpenses = this.data.expenses.filter(e => (e.expense_date||e.date||'').startsWith(month)).reduce((s,r) => s + (Number(r.amount)||0), 0);
+    const monthSales = salesInMonth.reduce((s,r) => s + (Number(r.invoice_total||r.invoiceTotal)||0), 0);
+    const monthCOGS = salesInMonth.reduce((s,r) => s + (Number(r.cogs_total||r.cogsTotal)||0), 0);
+    const monthExpenses = expensesInMonth.reduce((s,r) => s + (Number(r.amount)||0), 0);
     
     const realRawKg = this.getAvailableHayKg();
     const totalHayPurchasedKg = this.getTotalHayPurchasedKg();
     const totalHayConsumedKg = this.getTotalHayConsumedKg();
 
-    const monthSoldBales = this.data.sales.filter(s => (s.invoice_date||s.date||'').startsWith(month)).reduce((s,r) => {
+    const monthSoldBales = salesInMonth.reduce((s,r) => {
       const items = r.sale_line_items || r.stockAllocations || [];
       const lineBales = items.reduce((sum, li) => sum + (Number(li.bales_sold || li.bale_count || li.bales) || 0), 0);
       return s + (Number(r.balesCount ?? r.bales_count ?? lineBales) || lineBales || 0);
     }, 0);
 
-    const batchesReadySoon = this.data.plots
-      .filter(p => p.status === 'Fermenting' && (p.bales || 0) > 0 && p.fermStart)
-      .map(p => {
-        if (p.fermUnit === 'minute' && p.fermEndTimestamp) {
-          const secs = Math.max(0, Math.ceil((p.fermEndTimestamp - Date.now()) / 1000));
+    let batchesReadySoon = [];
+    if (isCurrentMonth) {
+      batchesReadySoon = this.data.plots
+        .filter(p => p.status === 'Fermenting' && (p.bales || 0) > 0 && p.fermStart)
+        .map(p => {
+          if (p.fermUnit === 'minute' && p.fermEndTimestamp) {
+            const secs = Math.max(0, Math.ceil((p.fermEndTimestamp - Date.now()) / 1000));
+            return {
+              plot: p.plot_name || p.id,
+              batch: p.batchNumber || '',
+              bales: p.bales,
+              daysLeft: 0,
+              secsLeft: secs,
+              isMinuteMode: true,
+              fermEndTimestamp: p.fermEndTimestamp,
+              readyDate: todayStr
+            };
+          }
+          const daysPassed = Math.max(0, this.getDaysDifference(p.fermStart, todayStr));
+          const daysLeft = Math.max(0, fermDays - daysPassed);
           return {
             plot: p.plot_name || p.id,
             batch: p.batchNumber || '',
             bales: p.bales,
-            daysLeft: 0,
-            secsLeft: secs,
-            isMinuteMode: true,
-            fermEndTimestamp: p.fermEndTimestamp,
-            readyDate: today
+            daysLeft,
+            daysPassed,
+            readyDate: this.addDays(p.fermStart, fermDays)
           };
-        }
-        const daysPassed = Math.max(0, this.getDaysDifference(p.fermStart, today));
-        const daysLeft = Math.max(0, fermDays - daysPassed);
-        return {
-          plot: p.plot_name || p.id,
-          batch: p.batchNumber || '',
-          bales: p.bales,
-          daysLeft,
-          daysPassed,
-          readyDate: this.addDays(p.fermStart, fermDays)
-        };
-      })
-      .sort((a,b) => (a.isMinuteMode ? 0 : 1) - (b.isMinuteMode ? 0 : 1) || (a.secsLeft || a.daysLeft) - (b.secsLeft || b.daysLeft))
-      .slice(0, 6);
+        })
+        .sort((a,b) => (a.isMinuteMode ? 0 : 1) - (b.isMinuteMode ? 0 : 1) || (a.secsLeft || a.daysLeft) - (b.secsLeft || b.daysLeft))
+        .slice(0, 6);
+    }
 
-    return {
-      role: this.getRole(),
-      readyBales,
-      fermentingBales,
-      customerDues,
-      supplierDues,
-      monthSales,
-      monthCOGS,
-      monthExpenses,
-      grossProfit: monthSales - monthCOGS,
-      netProfit: monthSales - monthCOGS - monthExpenses,
-      totalHayPurchasedKg,
-      totalHayConsumedKg,
-      rawMaterialKg: realRawKg,
-      rawMaterialBalesEquiv: Math.round(realRawKg/28),
-      monthSoldBales,
-      batchesReadySoon,
-      upcomingPayments: []
-    };
+    if (isCurrentMonth) {
+      return {
+        role: this.getRole(),
+        hasData: true,
+        isCurrentMonth: true,
+        monthActivityCount,
+        readyBales,
+        fermentingBales,
+        customerDues,
+        supplierDues,
+        monthSales,
+        monthCOGS,
+        monthExpenses,
+        grossProfit: monthSales - monthCOGS,
+        netProfit: monthSales - monthCOGS - monthExpenses,
+        totalHayPurchasedKg,
+        totalHayConsumedKg,
+        rawMaterialKg: realRawKg,
+        rawMaterialBalesEquiv: Math.round(realRawKg/28),
+        monthSoldBales,
+        batchesReadySoon,
+        upcomingPayments: []
+      };
+    } else {
+      const histBatchesBales = batchesInMonth.reduce((s, b) => s + (Number(b.bales_produced ?? b.bales) || 0), 0);
+      const histCustomerDues = salesInMonth.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+      const histSupplierDues = purchasesInMonth.reduce((s,r) => s + (Number(r.balance_pending ?? r.balancePending) || 0), 0);
+      const histHayPurchased = purchasesInMonth
+        .filter(p => (p.raw_material || p.item || '').toLowerCase().includes('hay'))
+        .reduce((s, p) => s + (Number(p.quantity_kg ?? p.quantity) || 0), 0);
+      const histHayConsumed = batchesInMonth.reduce((s, b) => s + (Number(b.hay_kg ?? b.raw_material_kg ?? b.quantity_kg) || 0), 0);
+
+      return {
+        role: this.getRole(),
+        hasData: true,
+        isCurrentMonth: false,
+        monthActivityCount,
+        readyBales: histBatchesBales,
+        fermentingBales: 0,
+        customerDues: histCustomerDues,
+        supplierDues: histSupplierDues,
+        monthSales,
+        monthCOGS,
+        monthExpenses,
+        grossProfit: monthSales - monthCOGS,
+        netProfit: monthSales - monthCOGS - monthExpenses,
+        totalHayPurchasedKg: histHayPurchased,
+        totalHayConsumedKg: histHayConsumed,
+        rawMaterialKg: Math.max(0, histHayPurchased - histHayConsumed),
+        rawMaterialBalesEquiv: Math.round(Math.max(0, histHayPurchased - histHayConsumed) / 28),
+        monthSoldBales,
+        batchesReadySoon: [],
+        upcomingPayments: []
+      };
+    }
   }
 
   // ─── Purchase Actions ─────────────────────────────────────────────

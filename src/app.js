@@ -21,7 +21,8 @@ function getAppTarget() {
   return appContent;
 }
 
-let currentMonth = new Date().toISOString().slice(0,7);
+const _initNow = new Date();
+let currentMonth = `${_initNow.getFullYear()}-${String(_initNow.getMonth() + 1).padStart(2, '0')}`;
 let activePlotFilter = 'ALL';
 let activePlotSection = 'ALL';
 let plotSearchQuery = '';
@@ -647,7 +648,152 @@ async function renderDashboard() {
   const now = new Date();
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({ value: d.toISOString().slice(0,7), label: d.toLocaleString('default',{month:'long',year:'numeric'}) });
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    months.push({ value: val, label: d.toLocaleString('default', { month: 'long', year: 'numeric' }) });
+  }
+
+  const selectedMonthObj = months.find(mo => mo.value === currentMonth);
+  const selectedMonthLabel = selectedMonthObj ? selectedMonthObj.label : currentMonth;
+  const currentActualMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonthObj = months.find(mo => mo.value === currentActualMonth);
+  const currentMonthLabel = currentMonthObj ? currentMonthObj.label : 'Current Month';
+
+  function bindDashEvents() {
+    const monthSelect = document.getElementById('dashMonthSelect');
+    if (monthSelect) {
+      monthSelect.addEventListener('change', async (e) => {
+        currentMonth = e.target.value;
+        showLoading('Refreshing…');
+        try {
+          dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
+        } catch(err) {}
+        hideLoading();
+        await renderDashboard();
+      });
+    }
+
+    const btnBack = document.getElementById('btnBackToCurrentMonth');
+    if (btnBack) {
+      btnBack.addEventListener('click', async () => {
+        const nowDate = new Date();
+        currentMonth = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
+        showLoading('Refreshing…');
+        try {
+          dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
+        } catch(err) {}
+        hideLoading();
+        await renderDashboard();
+      });
+    }
+
+    const btnAdd = document.getElementById('btnEmptyAddEntry');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', () => {
+        toggleQuickMenu();
+      });
+    }
+  }
+
+  if (!m.hasData) {
+    getAppTarget().innerHTML = `
+      <div class="dashboard-topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:14px;">
+        <div style="font-size:0.95rem;color:var(--text-sub);line-height:1.4;">
+          Overview for <strong style="color:#ffffff;">${m.role}</strong> • All bale operations & real-time accounts
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          ${isFinance ? `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <label style="font-size:0.85rem;font-weight:700;color:#DDFCE8;">Month:</label>
+              <select id="dashMonthSelect" class="form-select" style="padding:8px 16px;font-size:0.86rem;font-weight:600;background:rgba(11,48,36,0.85);color:#fff;border:1px solid rgba(255,255,255,0.22);border-radius:9999px;backdrop-filter:blur(12px);outline:none;cursor:pointer;">
+                ${months.map(mo => `<option value="${mo.value}" ${currentMonth===mo.value?'selected':''}>${mo.label}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+          <button class="btn-secondary" style="padding:8px 18px;font-size:0.86rem;font-weight:600;background:rgba(255,255,255,0.1);color:#DDFCE8;border:1px solid rgba(255,255,255,0.25);border-radius:9999px;backdrop-filter:blur(10px);cursor:pointer;" onclick="window.refreshDashboard()">🔄 Refresh</button>
+          <button class="btn-danger" style="padding:8px 18px;font-size:0.86rem;font-weight:600;background:rgba(217,83,79,0.18);color:#FCA5A5;border:1px solid rgba(217,83,79,0.4);border-radius:9999px;backdrop-filter:blur(10px);cursor:pointer;" onclick="window.signOut()">Sign Out</button>
+        </div>
+      </div>
+
+      <div class="empty-state-card" style="
+        background: linear-gradient(135deg, rgba(16, 44, 34, 0.75) 0%, rgba(8, 26, 20, 0.85) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        backdrop-filter: blur(16px);
+        padding: 56px 24px;
+        text-align: center;
+        max-width: 760px;
+        margin: 32px auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      ">
+        <div style="
+          width: 84px;
+          height: 84px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.05) 70%);
+          border: 1px solid rgba(52, 211, 153, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.6rem;
+          box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+          margin-bottom: 6px;
+        ">
+          🗓️
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <h2 style="font-size: 1.45rem; font-weight: 700; color: #FFFFFF; letter-spacing: -0.02em; margin: 0;">
+            No Data Found for ${selectedMonthLabel}
+          </h2>
+          <p style="font-size: 0.92rem; color: #94A3B8; max-width: 520px; line-height: 1.55; margin: 0 auto;">
+            There are no production batches, bale sales, purchases, or expenses recorded for ${selectedMonthLabel}.
+          </p>
+        </div>
+
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-top: 14px;
+        ">
+          <button id="btnBackToCurrentMonth" class="btn-primary" style="
+            padding: 10px 22px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            border-radius: 9999px;
+          ">
+            <span>📅</span>
+            <span>Back to Current Month (${currentMonthLabel})</span>
+          </button>
+          <button id="btnEmptyAddEntry" class="btn-secondary" style="
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.08);
+            color: #DDFCE8;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+            cursor: pointer;
+          ">
+            <span>＋</span>
+            <span>Add New Entry</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    bindDashEvents();
+    return;
   }
 
   const stageRaw = Number(m.rawMaterialBalesEquiv) || 0;
@@ -847,18 +993,7 @@ async function renderDashboard() {
     </div>
   `;
 
-  const monthSelect = document.getElementById('dashMonthSelect');
-  if (monthSelect) {
-    monthSelect.addEventListener('change', async (e) => {
-      currentMonth = e.target.value;
-      showLoading('Refreshing…');
-      try {
-        dashboardMetrics = await store.getDashboardMetricsAsync(currentMonth);
-      } catch(err) {}
-      hideLoading();
-      await renderDashboard();
-    });
-  }
+  bindDashEvents();
 }
 
 window.refreshDashboard = async function() {
