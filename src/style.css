@@ -3073,87 +3073,104 @@ input[type="number"]::placeholder,
 
 
 
+
 /* ------------------------------------------------------------------
-   REPORTS TAB BAR — RESPONSIVE LAYOUT FIXES
+   COMPREHENSIVE RESPONSIVE FIXES — TABLES, TABS, REPORT BAR
    ------------------------------------------------------------------ */
 
-/* Override filters-group for better flexible wrapping */
+/* -- FILTERS GROUP: single scrollable row, no wrap --------------- */
 .filters-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   min-width: 0;
   flex: 1 1 auto;
+  padding-bottom: 2px;
 }
+.filters-group::-webkit-scrollbar { display: none; }
+.filter-chip { flex-shrink: 0; }
 
-/* On mobile: report tab bar stacks vertically with scrollable chips row */
-@media (max-width: 600px) {
+/* -- REPORT TOOLBAR: chips left, button right --------------------- */
+#baleViewContent > div:first-child {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+  width: 100%;
+  min-width: 0;
+}
+#baleViewContent > div:first-child .btn-navy {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 540px) {
   #baleViewContent > div:first-child {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
   }
-
   #baleViewContent > div:first-child .filters-group {
-    overflow-x: auto;
-    flex-wrap: nowrap !important;
-    width: 100%;
-    padding-bottom: 2px;
-    scrollbar-width: none;
+    flex: 1 1 100%;
   }
-
-  #baleViewContent > div:first-child .filters-group::-webkit-scrollbar {
-    display: none;
-  }
-
   #baleViewContent > div:first-child .btn-navy {
     width: 100%;
     justify-content: center;
   }
 }
 
-/* ------------------------------------------------------------------
-   TABLE SCROLL — PROPER OVERFLOW ON ALL SCREENS
-   ------------------------------------------------------------------ */
-.section-box .data-table-wrapper,
-.section-box .table-container {
-  width: 100%;
+/* -- TABLE SCROLLING: section-box clips overflow ------------------- */
+/* Make section-box itself scrollable so unwrapped tables scroll */
+.section-box {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+/* Keep the card visuals — only horizontal content scrolls */
+.section-box .section-box-header {
+  min-width: max-content;
+}
+/* All app-tables: no wrap on cells */
+.app-table th,
+.app-table td,
+.data-table th,
+.data-table td {
+  white-space: nowrap;
+}
+/* Restore data-table-wrapper (explicit wrappers still work fine) */
+.data-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
 
-@media (max-width: 768px) {
-  .app-table th,
-  .app-table td,
-  .data-table th,
-  .data-table td {
-    white-space: nowrap;
-    padding: 10px 12px;
-    font-size: 0.84rem;
-  }
-
+/* -- TABLET: compact table cells ---------------------------------- */
+@media (max-width: 1024px) {
   .app-table th,
   .data-table th {
+    padding: 10px 12px;
     font-size: 0.74rem;
+  }
+  .app-table td,
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 0.83rem;
   }
 }
 
-/* ------------------------------------------------------------------
-   SMALL PHONE — FURTHER COMPACT HEADER & TABS
-   ------------------------------------------------------------------ */
+/* -- MOBILE: compact padding and tabs ----------------------------- */
 @media (max-width: 480px) {
   .goat-subnav-btn,
   .napier-subnav-btn,
   .bale-subnav-btn {
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    gap: 5px;
+    padding: 6px 11px;
+    font-size: 0.79rem;
   }
-
   .filter-chip {
-    height: 34px;
-    padding: 0 11px;
-    font-size: 0.78rem;
+    height: 33px;
+    padding: 0 10px;
+    font-size: 0.77rem;
   }
 }
