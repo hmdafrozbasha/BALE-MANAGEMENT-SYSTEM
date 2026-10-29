@@ -361,19 +361,22 @@ body {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .header-meta-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .header-actions-group {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .date-badge {
@@ -2338,39 +2341,43 @@ body {
    ───────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .top-header {
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    gap: 10px;
+    flex-wrap: nowrap;
+    padding: 8px 14px;
+    gap: 8px;
   }
 
   .header-left {
     flex: 1 1 auto;
+    min-width: 0;
   }
 
   .header-right {
-    flex: 1 1 100%;
-    justify-content: space-between;
-    padding-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    gap: 6px;
   }
 
   .header-meta-group {
-    flex: 1 1 auto;
-    justify-content: flex-start;
+    gap: 6px;
   }
 
   .date-badge {
-    padding: 5px 10px;
-    font-size: 0.78rem;
+    padding: 5px 9px;
+    font-size: 0.76rem;
+    gap: 4px;
   }
 
   .header-role-badge {
-    padding: 5px 10px;
-    font-size: 0.78rem;
+    padding: 5px 9px;
+    font-size: 0.76rem;
+    gap: 4px;
+  }
+
+  .header-role-badge .role-label-text {
+    display: none;
   }
 
   .quick-action-btn {
-    padding: 6px 14px;
+    padding: 6px 12px;
     font-size: 0.82rem;
   }
 
@@ -2690,21 +2697,24 @@ body {
 .goat-subnav-container,
 .napier-subnav-container,
 .bale-subnav-container {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   max-width: 100%;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(11, 48, 36, 0.45);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 8px 12px;
+  padding: 7px 10px;
   border-radius: var(--radius-full);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   overflow-x: auto;
   white-space: nowrap;
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 .goat-subnav-container::-webkit-scrollbar,
 .napier-subnav-container::-webkit-scrollbar,
@@ -2916,26 +2926,6 @@ body {
 /* ═══════════════════════════════════════════════════════════════════
    NAPIER MANAGEMENT MODULE — EMERALD LIQUID GLASS STYLES
    ═══════════════════════════════════════════════════════════════════ */
-.napier-subnav-container {
-  display: inline-flex;
-  max-width: 100%;
-  align-items: center;
-  gap: 8px;
-  background: rgba(11, 48, 36, 0.45);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 8px 12px;
-  border-radius: var(--radius-full);
-  margin-bottom: 24px;
-  overflow-x: auto;
-  white-space: nowrap;
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  scrollbar-width: none;
-}
-.napier-subnav-container::-webkit-scrollbar {
-  display: none;
-}
 
 .napier-subnav-btn {
   display: inline-flex;
@@ -3082,3 +3072,88 @@ input[type="number"]::placeholder,
 }
 
 
+
+/* ------------------------------------------------------------------
+   REPORTS TAB BAR � RESPONSIVE LAYOUT FIXES
+   ------------------------------------------------------------------ */
+
+/* Override filters-group for better flexible wrapping */
+.filters-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* On mobile: report tab bar stacks vertically with scrollable chips row */
+@media (max-width: 600px) {
+  #baleViewContent > div:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  #baleViewContent > div:first-child .filters-group {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  #baleViewContent > div:first-child .filters-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  #baleViewContent > div:first-child .btn-navy {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ------------------------------------------------------------------
+   TABLE SCROLL � PROPER OVERFLOW ON ALL SCREENS
+   ------------------------------------------------------------------ */
+.section-box .data-table-wrapper,
+.section-box .table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .app-table th,
+  .app-table td,
+  .data-table th,
+  .data-table td {
+    white-space: nowrap;
+    padding: 10px 12px;
+    font-size: 0.84rem;
+  }
+
+  .app-table th,
+  .data-table th {
+    font-size: 0.74rem;
+  }
+}
+
+/* ------------------------------------------------------------------
+   SMALL PHONE � FURTHER COMPACT HEADER & TABS
+   ------------------------------------------------------------------ */
+@media (max-width: 480px) {
+  .goat-subnav-btn,
+  .napier-subnav-btn,
+  .bale-subnav-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    gap: 5px;
+  }
+
+  .filter-chip {
+    height: 34px;
+    padding: 0 11px;
+    font-size: 0.78rem;
+  }
+}

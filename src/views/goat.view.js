@@ -1305,11 +1305,11 @@ window.openNewGoatPurchaseModal = function() {
       <div class="form-grid-3">
         <div class="form-group">
           <label class="form-label">Number of Goats <span style="color:#ef4444;">*</span></label>
-          <input type="number" id="gp_qty" class="form-input" value="10" min="1" step="1" required oninput="window.calcGoatPurchaseTotals()" />
+          <input type="number" id="gp_qty" class="form-input" placeholder="e.g. 5" min="1" step="1" required oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
           <label class="form-label">Price per Goat (₹) <span style="color:#ef4444;">*</span></label>
-          <input type="number" id="gp_price_per_goat" class="form-input" value="7000" min="0" required oninput="window.calcGoatPurchaseTotals()" />
+          <input type="number" id="gp_price_per_goat" class="form-input" placeholder="e.g. 5000" min="0" required oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
           <label class="form-label">Breed</label>
@@ -1329,15 +1329,15 @@ window.openNewGoatPurchaseModal = function() {
       <div class="form-grid-3">
         <div class="form-group">
           <label class="form-label">Total Initial Weight (kg) <span style="font-size:0.75rem;color:var(--text-muted);">(Optional)</span></label>
-          <input type="number" id="gp_weight" class="form-input" value="220" min="0" step="0.1" />
+          <input type="number" id="gp_weight" class="form-input" placeholder="e.g. 150" min="0" step="0.1" />
         </div>
         <div class="form-group">
           <label class="form-label">Transport Expense (₹)</label>
-          <input type="number" id="gp_transport" class="form-input" value="2500" min="0" oninput="window.calcGoatPurchaseTotals()" />
+          <input type="number" id="gp_transport" class="form-input" placeholder="0" min="0" oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
           <label class="form-label">Other Acquisition Charges (₹)</label>
-          <input type="number" id="gp_other" class="form-input" value="500" min="0" oninput="window.calcGoatPurchaseTotals()" />
+          <input type="number" id="gp_other" class="form-input" placeholder="0" min="0" oninput="window.calcGoatPurchaseTotals()" />
         </div>
       </div>
 
@@ -1345,26 +1345,26 @@ window.openNewGoatPurchaseModal = function() {
       <div style="background:rgba(11,48,36,0.05);border:1px solid rgba(11,48,36,0.12);border-radius:14px;padding:16px;margin:16px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
         <div>
           <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Base Amount:</span>
-          <strong id="gp_preview_base" style="font-size:1.05rem;color:var(--primary-navy);">₹70,000</strong>
+          <strong id="gp_preview_base" style="font-size:1.05rem;color:var(--primary-navy);">₹0</strong>
         </div>
         <div>
           <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Total Landed Cost:</span>
-          <strong id="gp_preview_total" style="font-size:1.15rem;color:var(--brand-blue);">₹73,000</strong>
+          <strong id="gp_preview_total" style="font-size:1.15rem;color:var(--brand-blue);">₹0</strong>
         </div>
         <div>
           <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Allocated Cost / Goat:</span>
-          <strong id="gp_preview_allocated" style="font-size:1.05rem;color:#087F5B;">₹7,300</strong>
+          <strong id="gp_preview_allocated" style="font-size:1.05rem;color:#087F5B;">₹0</strong>
         </div>
       </div>
 
       <div class="form-grid-3">
         <div class="form-group">
           <label class="form-label">Amount Paid (₹)</label>
-          <input type="number" id="gp_paid" class="form-input" value="50000" min="0" required oninput="window.calcGoatPurchaseTotals()" />
+          <input type="number" id="gp_paid" class="form-input" placeholder="0" min="0" required oninput="window.calcGoatPurchaseTotals()" />
         </div>
         <div class="form-group">
           <label class="form-label">Pending Balance (₹)</label>
-          <input type="text" id="gp_balance" class="form-input" value="₹23,000" readonly style="background:#F8FAFC;font-weight:700;color:var(--red-accent);" />
+          <input type="text" id="gp_balance" class="form-input" value="₹0" readonly style="background:#F8FAFC;font-weight:700;color:var(--red-accent);" />
         </div>
         <div class="form-group">
           <label class="form-label">Payment Due Date</label>
@@ -1634,39 +1634,33 @@ window.openNewGoatSaleModal = function() {
         </div>
         <div class="form-group">
           <label class="form-label" id="gs_rate_label">Rate per Goat (₹)</label>
-          <input type="number" id="gs_rate" class="form-input" value="9500" min="0" required oninput="window.calcGoatSaleTotals()" />
+          <input type="number" id="gs_rate" class="form-input" placeholder="e.g. 8000" min="0" required oninput="window.calcGoatSaleTotals()" />
         </div>
         <div class="form-group" id="gs_weight_group">
           <label class="form-label">Total Live Weight (kg)</label>
-          <input type="number" id="gs_weight" class="form-input" value="35" min="0" step="0.1" oninput="window.calcGoatSaleTotals()" />
+          <input type="number" id="gs_weight" class="form-input" placeholder="e.g. 30" min="0" step="0.1" oninput="window.calcGoatSaleTotals()" />
         </div>
       </div>
 
       <!-- Calculated Totals Preview -->
-      <div style="background:rgba(11,48,36,0.05);border:1px solid rgba(11,48,36,0.12);border-radius:14px;padding:16px;margin:16px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-        <div>
-          <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Invoiced Total:</span>
-          <strong id="gs_preview_total" style="font-size:1.2rem;color:var(--brand-blue);">₹9,500</strong>
-        </div>
-        <div>
-          <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Cost Basis (COGS):</span>
-          <strong id="gs_preview_cogs" style="font-size:1.05rem;color:var(--text-muted);">₹7,300</strong>
-        </div>
-        <div>
-          <span style="font-size:0.75rem;color:var(--text-muted);display:block;">Realized Gross Margin:</span>
-          <strong id="gs_preview_margin" style="font-size:1.15rem;color:#087F5B;">+₹2,200</strong>
-        </div>
+      <div style="background:rgba(11,48,36,0.05);border:1px solid rgba(11,48,36,0.12);border-radius:14px;padding:14px 18px;margin:16px 0;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Invoiced Total:</span>
+        <strong id="gs_preview_total" style="font-size:1.25rem;color:var(--brand-blue);">₹0</strong>
+        <strong id="gs_preview_cogs" style="display:none;"></strong>
+        <strong id="gs_preview_margin" style="display:none;"></strong>
       </div>
 
-      <div class="form-grid-3">
+      <div class="form-grid-2">
         <div class="form-group">
           <label class="form-label">Amount Received (₹)</label>
-          <input type="number" id="gs_paid" class="form-input" value="9500" min="0" required oninput="window.calcGoatSaleTotals()" />
+          <input type="number" id="gs_paid" class="form-input" placeholder="0" min="0" required oninput="window.calcGoatSaleTotals()" />
         </div>
         <div class="form-group">
           <label class="form-label">Balance Pending (₹)</label>
           <input type="text" id="gs_balance" class="form-input" value="₹0" readonly style="background:#F8FAFC;font-weight:700;color:#087F5B;" />
         </div>
+      </div>
+      <div class="form-grid-2" style="margin-top:0;">
         <div class="form-group">
           <label class="form-label">Payment Due Date</label>
           <input type="date" id="gs_due_date" class="form-input" />
