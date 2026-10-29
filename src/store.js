@@ -625,6 +625,7 @@ class Store {
     if (raw === 'accountant') return 'Accountant';
     return 'Staff';
   }
+  isOwner() { return this.getRole() === 'Owner'; }
   canViewFinancials() { return this.getRole() !== 'Staff'; }
   canEditFinancials() { return ['Owner','Accountant'].includes(this.getRole()); }
   canDelete() { return ['Owner','Accountant'].includes(this.getRole()); }
@@ -3270,12 +3271,78 @@ class Store {
   }
 
   async resetNapierData(options = {}) {
-    if (options.plots) this.data.napierPlots = [];
-    if (options.harvests) {
+    if (!this.canDelete()) {
+      throw new Error('Access denied. Only the Owner can reset system data.');
+    }
+
+    const sel = {
+      harvests: true,
+      sales: true,
+      expenses: true,
+      stock: true,
+      plots: false,
+      customers: false,
+      ...options
+    };
+
+    const del = async (table, filterCol = 'id') => {
+      try {
+        const { error } = await supabase.from(table).delete().neq(filterCol, '00000000-0000-0000-0000-000000000000');
+        if (error) console.warn(`Reset delete ${table}:`, error.message);
+      } catch(e) { console.warn(`Reset delete ${table} threw:`, e.message); }
+    };
+
+    // 1. Sales & Customer Payments
+    if (sel.sales) {
+      await del('napier_payments');
+      await del('napier_sales');
+      try {
+        await supabase.from('napier_stock_movements').delete().eq('movement_type', 'SALE_OUT');
+      } catch(e) { console.warn('Reset delete napier_stock_movements (SALE_OUT):', e.message); }
+    }
+
+    // 2. Expenses
+    if (sel.expenses) {
+      await del('napier_expenses');
+    }
+
+    // 3. Harvests
+    if (sel.harvests) {
+      try {
+        await supabase.from('napier_stock_movements').delete().eq('movement_type', 'HARVEST_IN');
+      } catch(e) { console.warn('Reset delete napier_stock_movements (HARVEST_IN):', e.message); }
+      await del('napier_harvests');
+    }
+
+    // 4. Stock Adjustments & all remaining Stock Movements
+    if (sel.stock) {
+      await del('napier_stock_adjustments');
+      await del('napier_stock_movements');
+    }
+
+    // 5. Plots (if selected)
+    if (sel.plots) {
+      try {
+        await supabase.from('napier_stock_movements').delete().eq('movement_type', 'HARVEST_IN');
+      } catch(e) {}
+      await del('napier_harvests');
+      await del('napier_plots');
+    }
+
+    // 6. Customers (if selected)
+    if (sel.customers) {
+      await del('napier_payments');
+      await del('napier_sales');
+      await del('napier_customers');
+    }
+
+    // Synchronize local memory cache
+    if (sel.plots) this.data.napierPlots = [];
+    if (sel.harvests) {
       this.data.napierHarvests = [];
       this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(m => m.movement_type !== 'HARVEST_IN');
     }
-    if (options.sales) {
+    if (sel.sales) {
       this.data.napierSales = [];
       this.data.napierPayments = [];
       this.data.napierStockMovements = (this.data.napierStockMovements || []).filter(m => m.movement_type !== 'SALE_OUT');
@@ -3285,15 +3352,16 @@ class Store {
         c.balancePending = 0;
       });
     }
-    if (options.expenses) this.data.napierExpenses = [];
-    if (options.stock) {
+    if (sel.expenses) this.data.napierExpenses = [];
+    if (sel.stock) {
       this.data.napierStockMovements = [];
       this.data.napierStockAdjustments = [];
     }
-    if (options.customers) this.data.napierCustomers = [];
+    if (sel.customers) this.data.napierCustomers = [];
 
     this._saveCache();
     this.notify();
+    try { await this.loadAll(); } catch(e) { console.warn('Post-napier-reset reload:', e.message); }
     return { success: true };
   }
 

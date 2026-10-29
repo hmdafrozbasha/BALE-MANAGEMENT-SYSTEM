@@ -4608,8 +4608,8 @@ window.confirmResetGoatData = function() {
 };
 
 window.confirmResetNapierData = function() {
-  if (!store.isOwner()) {
-    showToast('Only the Owner account can perform data wipes.', 'error');
+  if (!store.canDelete()) {
+    showToast('Access denied. Only the Owner can reset data.', 'error');
     return;
   }
 
@@ -4699,6 +4699,8 @@ window.confirmResetNapierData = function() {
       closeModal();
       if (typeof window.renderNapierManagement === 'function' && currentTab === 'napier-management') {
         window.renderNapierManagement();
+      } else if (currentTab === 'settings') {
+        renderSettings();
       }
       showToast('Napier data wiped successfully.', 'info');
     } catch (err) {

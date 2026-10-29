@@ -172,13 +172,18 @@ function renderNapierDashboard(container) {
           </div>
         </div>
 
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button class="btn-primary" style="background:#10B981;border-color:#34D399;font-weight:700;" onclick="window.openNewNapierHarvestModal()">
             <span>🌿</span> <span>Record Harvest</span>
           </button>
           ${isFinance ? `
             <button class="btn-secondary" style="background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.3);font-weight:700;" onclick="window.openNewNapierSaleModal()">
               <span>💼</span> <span>New Sale / Invoice</span>
+            </button>
+          ` : ''}
+          ${store.canDelete() ? `
+            <button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;border:none;box-shadow:0 2px 4px rgba(220,38,38,0.25);cursor:pointer;" onclick="window.confirmResetNapierData()" title="Reset Napier records">
+              <span>💣</span> <span>Reset Napier Data</span>
             </button>
           ` : ''}
         </div>
@@ -1255,13 +1260,18 @@ function renderNapierReports(container) {
         </p>
       </div>
 
-      <div style="display:flex;gap:10px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <button class="btn-secondary" onclick="window.exportNapierReportExcel()">
           <span>📊</span> <span>Export to Excel</span>
         </button>
         <button class="btn-secondary" onclick="window.print()">
           <span>🖨️</span> <span>Print Statement</span>
         </button>
+        ${store.canDelete() ? `
+          <button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;border:none;cursor:pointer;" onclick="window.confirmResetNapierData()" title="Reset Napier records">
+            <span>💣</span> <span>Reset Napier Data</span>
+          </button>
+        ` : ''}
       </div>
     </div>
 
