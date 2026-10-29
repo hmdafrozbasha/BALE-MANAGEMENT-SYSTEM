@@ -6,7 +6,7 @@ import { renderNapierManagement } from './views/napier.view.js';
 window.renderNapierManagement = renderNapierManagement;
 
 // Application State
-let currentTab = 'dashboard';
+let currentTab = 'bale-management';
 let currentBaleSubTab = 'dashboard';
 const BALE_TABS = ['dashboard', 'plots', 'production', 'purchases', 'sales', 'expenses', 'reports', 'bale-dashboard'];
 
@@ -230,7 +230,7 @@ async function init() {
     if (hash) {
       navigateTo(hash);
     } else {
-      navigateTo('dashboard');
+      navigateTo('bale-management');
     }
   });
 
@@ -394,7 +394,7 @@ function updateRoleUI() {
   if (role === 'Staff') {
     roleNoticeBanner.classList.remove('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.add('hidden'));
-    if (['purchases','sales','expenses','reports'].includes(currentTab)) currentTab = 'dashboard';
+    if (['purchases','sales','expenses','reports'].includes(currentTab)) currentTab = 'bale-management';
     if (['purchases','sales','expenses','reports'].includes(currentBaleSubTab)) currentBaleSubTab = 'dashboard';
   } else {
     roleNoticeBanner.classList.add('hidden');
@@ -411,10 +411,11 @@ function navigateTo(tab, params) {
 
   if (tab === 'bale-management') {
     currentTab = 'bale-management';
-  } else if (tab === 'bale-dashboard') {
+    currentBaleSubTab = 'dashboard';
+  } else if (tab === 'bale-dashboard' || tab === 'dashboard') {
     currentTab = 'bale-management';
     currentBaleSubTab = 'dashboard';
-  } else if (BALE_TABS.includes(tab) && tab !== 'dashboard') {
+  } else if (BALE_TABS.includes(tab)) {
     currentTab = 'bale-management';
     currentBaleSubTab = tab;
   } else {
@@ -4471,8 +4472,9 @@ window.confirmResetEverything = function() {
       hideLoading();
       modalBody.id = '';
       closeModal();
-      currentTab = 'dashboard';
-      await renderDashboard();
+      currentTab = 'bale-management';
+      currentBaleSubTab = 'dashboard';
+      await renderBaleManagement();
       showToast('Selected data deleted successfully.', 'info');
     } catch (err) {
       hideLoading();
