@@ -391,6 +391,11 @@ function updateRoleUI() {
   const drawerDate = document.getElementById('mobileDrawerDateDisplay');
   if (drawerDate) drawerDate.textContent = formattedDate;
 
+  // Hide Settings nav for Staff
+  document.querySelectorAll('.settings-nav-item').forEach(el => {
+    el.style.display = role === 'Staff' ? 'none' : '';
+  });
+
   if (role === 'Staff') {
     roleNoticeBanner.classList.remove('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.add('hidden'));
@@ -3834,7 +3839,8 @@ function renderSettings() {
           </div>
           ` : ''}
 
-          <!-- Card 5: Danger Zone (Selective Reset) -->
+          <!-- Card 5: Danger Zone (Selective Reset) - Owner Only -->
+          ${store.isOwner() ? `
           <div class="section-box" style="margin:0;border:1.5px solid #fca5a5;background:#fff8f8;">
             <div class="section-box-header" style="border-bottom:1px solid #fee2e2;display:flex;justify-content:space-between;align-items:center;">
               <div class="box-title" style="color:#b91c1c;display:flex;align-items:center;gap:8px;">
@@ -3857,6 +3863,7 @@ function renderSettings() {
               </button>
             </div>
           </div>
+          ` : ''}
 
         </div>
 

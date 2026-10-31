@@ -153,7 +153,7 @@ function renderGoatDashboard(container) {
         <button class="btn-primary" onclick="window.openNewGoatPurchaseModal()">＋ Purchase Goats</button>
         ${isFinance ? `<button class="btn-primary" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);" onclick="window.openNewGoatSaleModal()">＋ Sell Goats</button>` : ''}
         ${isFinance ? `<button class="btn-secondary" onclick="window.openNewGoatExpenseModal()">＋ Add Expense</button>` : ''}
-        ${store.canDelete() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
+        ${store.isOwner() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
       </div>
     </div>
 
@@ -197,32 +197,40 @@ function renderGoatDashboard(container) {
       </div>
 
       <!-- 4. Herd Inventory Valuation -->
+      ${isFinance ? `
       <div class="kpi-card empty">
         <div class="kpi-label">Herd Inventory Value</div>
         <div class="kpi-value" style="color:var(--primary-navy);">${store.formatINR(m.herd_inventory_value)}</div>
         <div class="kpi-subtext">Carrying Cost Basis</div>
       </div>
+      ` : ''}
 
       <!-- 5. Purchases This Month -->
+      ${isFinance ? `
       <div class="kpi-card purchases-kpi">
         <div class="kpi-label">Purchases This Month</div>
         <div class="kpi-value">${store.formatINR(m.purchases_this_month)}</div>
         <div class="kpi-subtext">Acquisition Costs</div>
       </div>
+      ` : ''}
 
       <!-- 6. Goat Sales This Month -->
+      ${isFinance ? `
       <div class="kpi-card revenue-kpi">
         <div class="kpi-label">Sales This Month</div>
         <div class="kpi-value">${store.formatINR(m.sales_this_month)}</div>
         <div class="kpi-subtext">Gross Revenue</div>
       </div>
+      ` : ''}
 
       <!-- 7. Rearing Expenses This Month -->
+      ${isFinance ? `
       <div class="kpi-card expenses-kpi">
         <div class="kpi-label">Rearing Expenses</div>
         <div class="kpi-value" style="color:#D9534F;">${store.formatINR(m.expenses_this_month)}</div>
         <div class="kpi-subtext">Feed, Meds & Labour</div>
       </div>
+      ` : ''}
 
       <!-- 8. Realized Profit / Loss -->
       ${store.isOwner() ? `
@@ -236,18 +244,22 @@ function renderGoatDashboard(container) {
       ` : ''}
 
       <!-- 9. Customer Receivables -->
+      ${isFinance ? `
       <div class="kpi-card customer-due">
         <div class="kpi-label">Customer Receivables</div>
         <div class="kpi-value" style="color:#D9534F;">${store.formatINR(m.customer_receivables)}</div>
         <div class="kpi-subtext">Pending Customer Due</div>
       </div>
+      ` : ''}
 
       <!-- 10. Supplier Payables -->
+      ${isFinance ? `
       <div class="kpi-card supplier-due">
         <div class="kpi-label">Supplier Payables</div>
         <div class="kpi-value" style="color:#087F5B;">${store.formatINR(m.supplier_payables)}</div>
         <div class="kpi-subtext">Pending To Breeders</div>
       </div>
+      ` : ''}
     </div>
 
     <!-- Dashboard Two Columns Layout -->
@@ -995,7 +1007,7 @@ function renderGoatReports(container) {
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <button class="btn-secondary" onclick="window.exportGoatExcelReport()">📥 Export to Excel</button>
         <button class="btn-primary" onclick="window.printGoatReport()">🖨 Print P&L Statement</button>
-        ${store.canDelete() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
+        ${store.isOwner() ? `<button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;" onclick="window.confirmResetGoatData()" title="Reset goat records">💣 Reset Goat Data</button>` : ''}
       </div>
     </div>
 

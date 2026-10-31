@@ -181,7 +181,7 @@ function renderNapierDashboard(container) {
               <span>💼</span> <span>New Sale / Invoice</span>
             </button>
           ` : ''}
-          ${store.canDelete() ? `
+          ${store.isOwner() ? `
             <button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;border:none;box-shadow:0 2px 4px rgba(220,38,38,0.25);cursor:pointer;" onclick="window.confirmResetNapierData()" title="Reset Napier records">
               <span>💣</span> <span>Reset Napier Data</span>
             </button>
@@ -1273,7 +1273,7 @@ function renderNapierReports(container) {
         <button class="btn-secondary" onclick="window.print()">
           <span>🖨️</span> <span>Print Statement</span>
         </button>
-        ${store.canDelete() ? `
+        ${store.isOwner() ? `
           <button class="btn-danger" style="background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.84rem;font-weight:700;border:none;cursor:pointer;" onclick="window.confirmResetNapierData()" title="Reset Napier records">
             <span>💣</span> <span>Reset Napier Data</span>
           </button>
