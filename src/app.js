@@ -855,11 +855,13 @@ async function renderDashboard() {
           <div class="kpi-value text-red">${store.formatINR(m.monthExpenses)}</div>
           <div class="kpi-subtext">Factory, labour, diesel & operations</div>
         </div>
+        ${store.isOwner() ? `
         <div class="finance-card ${m.netProfit >= 0 ? 'profit-positive' : 'profit-loss'}">
           <div class="kpi-label">Profit This Month</div>
           <div class="kpi-value">${store.formatINR(m.netProfit)}</div>
           <div class="kpi-subtext">${m.netProfit >= 0 ? '▲ Net profit after COGS & expenses' : '▼ Net operating loss'}</div>
         </div>
+        ` : ''}
       </div>
     ` : ''}
 
@@ -3471,13 +3473,18 @@ function renderReports() {
   const isFinance = store.canViewFinancials();
   if (!isFinance) { getAppTarget().innerHTML = `<div style="padding:40px;text-align:center;">Staff cannot access financial reports.</div>`; return; }
 
+  const isOwner = store.isOwner();
+  // If accountant has active tab that is now hidden, switch to customers
+  if (!isOwner && (activeReportTab === 'pnl' || activeReportTab === 'batches')) {
+    activeReportTab = 'customers';
+  }
   getAppTarget().innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div class="filters-group">
-        <button class="filter-chip ${activeReportTab==='pnl'?'active':''}" onclick="window.switchReport('pnl')">📊 Profit & Loss</button>
+        ${isOwner ? `<button class="filter-chip ${activeReportTab==='pnl'?'active':''}" onclick="window.switchReport('pnl')">📊 Profit & Loss</button>` : ''}
         <button class="filter-chip ${activeReportTab==='customers'?'active':''}" onclick="window.switchReport('customers')">💼 Customer Balances</button>
         <button class="filter-chip ${activeReportTab==='suppliers'?'active':''}" onclick="window.switchReport('suppliers')">🛒 Supplier Balances</button>
-        <button class="filter-chip ${activeReportTab==='batches'?'active':''}" onclick="window.switchReport('batches')">🏭 Cost & Profit / Batch</button>
+        ${isOwner ? `<button class="filter-chip ${activeReportTab==='batches'?'active':''}" onclick="window.switchReport('batches')">🏭 Cost & Profit / Batch</button>` : ''}
       </div>
       <button class="btn-navy" onclick="window.exportCurrentReport()">📥 Download Excel</button>
     </div>

@@ -225,6 +225,7 @@ function renderGoatDashboard(container) {
       </div>
 
       <!-- 8. Realized Profit / Loss -->
+      ${store.isOwner() ? `
       <div class="kpi-card ${m.realized_profit_loss >= 0 ? 'profit-kpi' : 'loss-kpi'}">
         <div class="kpi-label">Realized Net Profit</div>
         <div class="kpi-value">
@@ -232,6 +233,7 @@ function renderGoatDashboard(container) {
         </div>
         <div class="kpi-subtext">Sales − COGS − Expenses</div>
       </div>
+      ` : ''}
 
       <!-- 9. Customer Receivables -->
       <div class="kpi-card customer-due">
@@ -1009,21 +1011,25 @@ function renderGoatReports(container) {
         <div class="kpi-value">${store.formatINR(totalCogs)}</div>
         <div class="kpi-subtext">Acquisition Basis</div>
       </div>
+      ${store.isOwner() ? `
       <div class="kpi-card ${grossProfit >= 0 ? 'profit-kpi' : 'loss-kpi'}">
         <div class="kpi-label">Gross Margin</div>
         <div class="kpi-value">${store.formatINR(grossProfit)}</div>
         <div class="kpi-subtext">Sales − COGS</div>
       </div>
+      ` : ''}
       <div class="kpi-card expenses-kpi">
         <div class="kpi-label">Operating Expenses</div>
         <div class="kpi-value" style="color:#D9534F;">${store.formatINR(totalExpenses)}</div>
         <div class="kpi-subtext">Rearing, Feed & Meds</div>
       </div>
+      ${store.isOwner() ? `
       <div class="kpi-card ${netProfit >= 0 ? 'profit-kpi' : 'loss-kpi'}">
         <div class="kpi-label">Net Realized Profit</div>
         <div class="kpi-value">${store.formatINR(netProfit)}</div>
         <div class="kpi-subtext">Operating Net Income</div>
       </div>
+      ` : ''}
     </div>
 
     <!-- P&L Breakdown Card & Balance Sheet Asset -->

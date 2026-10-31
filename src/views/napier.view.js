@@ -253,6 +253,7 @@ function renderNapierDashboard(container) {
       </div>
 
       <!-- Realized Net Profit -->
+      ${store.isOwner() ? `
       <div class="kpi-card ${isFinance ? (summary.netProfit >= 0 ? 'profit-kpi' : 'loss-kpi') : ''}">
         <div class="kpi-header">
           <span class="kpi-label">Realized Net Profit (Month)</span>
@@ -263,6 +264,7 @@ function renderNapierDashboard(container) {
           ${isFinance ? `Gross Profit: ${formatCurrency(summary.grossProfit)}` : 'Restricted'}
         </div>
       </div>
+      ` : ''}
 
       <!-- Outstanding Receivables -->
       <div class="kpi-card">
@@ -1244,6 +1246,10 @@ function renderNapierPayments(container) {
 // ─────────────────────────────────────────────────────────────────
 function renderNapierReports(container) {
   const isFinance = store.canViewFinancials();
+  // If accountant has active tab that is now hidden, switch to yield
+  if (!store.isOwner() && reportViewType === 'pnl') {
+    reportViewType = 'yield';
+  }
   const summary = store.getNapierFinancialSummary(reportPeriod);
   const stock = summary.stockSummary;
   const plots = store.data.napierPlots || [];
@@ -1290,9 +1296,11 @@ function renderNapierReports(container) {
 
       <!-- Report View Selector -->
       <div class="goat-view-toggle">
+        ${store.isOwner() ? `
         <button class="goat-toggle-btn ${reportViewType === 'pnl' ? 'active' : ''}" onclick="window.setNapierReportView('pnl')">
           Profit & Loss Statement
         </button>
+        ` : ''}
         <button class="goat-toggle-btn ${reportViewType === 'yield' ? 'active' : ''}" onclick="window.setNapierReportView('yield')">
           Plot Yield & Production
         </button>
