@@ -68,8 +68,8 @@ function showAuthScreen() {
       <div style="background:rgba(255, 255, 255, 0.96); backdrop-filter:blur(28px); border-radius:28px; padding:38px; width:100%; max-width:440px; box-shadow:0 30px 70px rgba(0,0,0,0.5), inset 0 1px 2px #fff; border:1px solid rgba(255, 255, 255, 0.9);">
         <div style="text-align:center; margin-bottom:28px;">
           <div style="width:54px; height:54px; background:linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius:16px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; box-shadow:0 4px 18px rgba(16, 185, 129, 0.45); border:1px solid rgba(183, 243, 107, 0.4);">🌾</div>
-          <h1 style="font-size:1.65rem; font-weight:800; color:#0B3024; margin:0; font-family:'Outfit', sans-serif;">Bale Manager</h1>
-          <p style="color:#64748B; font-size:0.88rem; margin:4px 0 0; font-weight:600;">Sri Balaji Agro Operations • BMS v1.0</p>
+          <h1 style="font-size:1.65rem; font-weight:800; color:#0B3024; margin:0; font-family:'Outfit', sans-serif;">CloudAgroBale</h1>
+          <p style="color:#64748B; font-size:0.88rem; margin:4px 0 0; font-weight:600;">Agro Farm Management • v1.0</p>
         </div>
 
         <div style="background:rgba(11, 48, 36, 0.05); border-radius:12px; padding:12px 16px; margin-bottom:24px; font-size:0.83rem; color:#44594F; display:flex; align-items:flex-start; gap:8px; border:1px solid rgba(11, 48, 36, 0.08);">
@@ -3686,7 +3686,7 @@ function renderSettings() {
               <div class="form-grid-2">
                 <div class="form-group">
                   <label class="form-label">Company / Brand Name</label>
-                  <input type="text" id="setting_companyName" class="form-input" value="${settings.companyName||'Sri Balaji Agro Bales'}" required />
+                  <input type="text" id="setting_companyName" class="form-input" value="${settings.companyName||'CloudAgroBale'}" required />
                 </div>
                 <div class="form-group">
                   <label class="form-label">Standard Curing Period (Days)</label>

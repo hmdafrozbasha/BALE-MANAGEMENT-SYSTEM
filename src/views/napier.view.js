@@ -2305,7 +2305,7 @@ window.openNapierInvoiceDetailModal = function(saleId) {
     <div style="padding:16px;background:#fff;border-radius:10px;">
       <div style="display:flex;justify-content:space-between;border-bottom:2px solid #E2E8F0;padding-bottom:12px;margin-bottom:16px;">
         <div>
-          <div style="font-size:1.3rem;font-weight:800;color:#065F46;">🌱 Sri Balaji Agro Bales</div>
+          <div style="font-size:1.3rem;font-weight:800;color:#065F46;">🌱 CloudAgroBale</div>
           <div style="font-size:0.8rem;color:var(--text-muted);">Napier Fodder & Crop Enterprise</div>
           <div style="font-size:0.8rem;color:var(--text-muted);">Warangal, Telangana</div>
         </div>

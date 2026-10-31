@@ -2408,8 +2408,8 @@ window.openGoatInvoiceModal = function(saleId) {
     <div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid var(--border-light);font-family:var(--font-body);" id="printableGoatInvoice">
       <div style="display:flex;justify-content:space-between;border-bottom:2px solid var(--primary-navy);padding-bottom:14px;margin-bottom:16px;">
         <div>
-          <h2 style="margin:0;font-size:1.4rem;color:var(--primary-navy);font-family:var(--font-heading);">Sri Balaji Livestock & Goat Farm</h2>
-          <div style="font-size:0.8rem;color:var(--text-muted);">Commercial Goat Breeding & Trading Division</div>
+          <h2 style="margin:0;font-size:1.4rem;color:var(--primary-navy);font-family:var(--font-heading);">CloudAgroBale</h2>
+          <div style="font-size:0.8rem;color:var(--text-muted);">Goat Farming & Trading Division</div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:1.1rem;font-weight:800;color:var(--primary-navy);">${sale.invoice_no}</div>
@@ -2642,7 +2642,7 @@ window.printGoatReport = function() {
         </style>
       </head>
       <body>
-        <h1 style="color:#0B3024;">Sri Balaji Livestock & Goat Farm</h1>
+        <h1 style="color:#0B3024;">CloudAgroBale</h1>
         <p>Goat Operations • Profit & Loss Statement as of ${store.getCurrentDate()}</p>
         <hr />
         ${printArea.innerHTML}

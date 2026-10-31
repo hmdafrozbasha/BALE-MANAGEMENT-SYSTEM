@@ -282,7 +282,7 @@ class Store {
 
       if (settingsData) {
         this.data.settings.fermentationDays = settingsData.fermentation_days || 30;
-        this.data.settings.companyName = settingsData.company_name || 'Bale Manager';
+        this.data.settings.companyName = settingsData.company_name || 'CloudAgroBale';
       }
 
       let offset = 3;
@@ -523,7 +523,7 @@ class Store {
       if (snap.expenses) this.data.expenses = snap.expenses;
       if (snap.settings) {
         this.data.settings.fermentationDays = snap.settings.fermentationDays || 30;
-        this.data.settings.companyName = snap.settings.companyName || 'Bale Manager';
+        this.data.settings.companyName = snap.settings.companyName || 'CloudAgroBale';
         this.data.settings.activeRole = snap.settings.activeRole || this.data.settings.activeRole;
       }
 
