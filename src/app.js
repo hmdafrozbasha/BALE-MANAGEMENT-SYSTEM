@@ -69,7 +69,7 @@ function showAuthScreen() {
         <div style="text-align:center; margin-bottom:28px;">
           <div style="width:54px; height:54px; background:linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius:16px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; box-shadow:0 4px 18px rgba(16, 185, 129, 0.45); border:1px solid rgba(183, 243, 107, 0.4);">🌾</div>
           <h1 style="font-size:1.65rem; font-weight:800; color:#0B3024; margin:0; font-family:'Outfit', sans-serif;">CloudAgroBale</h1>
-          <p style="color:#64748B; font-size:0.88rem; margin:4px 0 0; font-weight:600;">Agro Farm Management • v1.0</p>
+          <p style="color:#64748B; font-size:0.88rem; margin:4px 0 0; font-weight:600;">Agro Farm Management</p>
         </div>
 
         <div style="background:rgba(11, 48, 36, 0.05); border-radius:12px; padding:12px 16px; margin-bottom:24px; font-size:0.83rem; color:#44594F; display:flex; align-items:flex-start; gap:8px; border:1px solid rgba(11, 48, 36, 0.08);">
