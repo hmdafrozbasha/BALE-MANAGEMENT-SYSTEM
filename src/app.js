@@ -35,7 +35,6 @@ const pageTitle = document.getElementById('pageTitle');
 const currentDateDisplay = document.getElementById('currentDateDisplay');
 const roleSelector = document.getElementById('roleSelector');
 const currentRoleText = document.getElementById('currentRoleText');
-const roleNoticeBanner = document.getElementById('roleNoticeBanner');
 const quickActionHeaderBtn = document.getElementById('quickActionHeaderBtn');
 const mobileFabBtn = document.getElementById('mobileFabBtn');
 const quickMenuPopover = document.getElementById('quickMenuPopover');
@@ -397,12 +396,10 @@ function updateRoleUI() {
   });
 
   if (role === 'Staff') {
-    roleNoticeBanner.classList.remove('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.add('hidden'));
     if (['purchases','sales','expenses','reports'].includes(currentTab)) currentTab = 'bale-management';
     if (['purchases','sales','expenses','reports'].includes(currentBaleSubTab)) currentBaleSubTab = 'dashboard';
   } else {
-    roleNoticeBanner.classList.add('hidden');
     document.querySelectorAll('.finance-required').forEach(el => el.classList.remove('hidden'));
   }
 }
